@@ -104,4 +104,13 @@ II. Agent Temel Bileşenleri.
         
         ![alt text](OtonomiLevel.png)
 
+III) Tool ve Tool Calling
         
+     ![alt text](Tool.png)
+  
+       III.I) Tool Tanımı :
+
+         ![alt text](ToolDesc.png)
+         ![alt text](ToolCallWorkflow.png)
+         
+       III.II) MCP : https://modelcontextprotocol.io/specification/2025-11-25/server/tools
