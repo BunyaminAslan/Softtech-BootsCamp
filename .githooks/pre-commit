@@ -1,0 +1,49 @@
+#!/bin/sh
+# Commit öncesi precommit-lead'i (pre-commit-reviewer + sprint-documenter) çalıştırır.
+# Sonuç FAIL ise commit engellenir. Acil durumda atlamak için: git commit --no-verify
+
+ROOT=$(git rev-parse --show-toplevel) || exit 1
+cd "$ROOT" || exit 1
+
+# Staged değişiklik yoksa yapılacak bir şey yok
+if git diff --cached --quiet; then
+  exit 0
+fi
+
+# Claude CLI: önce PATH, yoksa VS Code eklentisindeki en yeni sürüm
+CLAUDE_BIN=$(command -v claude)
+if [ -z "$CLAUDE_BIN" ]; then
+  CLAUDE_BIN=$(ls -d "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude.exe 2>/dev/null | sort -V | tail -n 1)
+fi
+if [ -z "$CLAUDE_BIN" ]; then
+  echo "❌ Claude CLI bulunamadı, commit engellendi."
+  echo "   Kurulum: npm install -g @anthropic-ai/claude-code"
+  exit 1
+fi
+
+LOG_DIR="$(git rev-parse --git-dir)/precommit-lead"
+mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/last-run.log"
+
+echo "🔍 precommit-lead commit öncesi kontrolü çalıştırıyor (birkaç dakika sürebilir)..."
+
+"$CLAUDE_BIN" -p --agent precommit-lead --permission-mode acceptEdits \
+  "HOOK MODU: Staged değişiklikler için commit öncesi akışı çalıştır (pre-commit-reviewer ardından sprint-documenter)." \
+  < /dev/null 2>&1 | tee "$LOG"
+
+VERDICT=$(grep -o 'LEAD_VERDICT: [A-Z]*' "$LOG" | tail -n 1)
+
+if [ "$VERDICT" = "LEAD_VERDICT: PASS" ]; then
+  # Sprint dokümanını bu commit'e dahil et
+  N=$(( $(git rev-list --count HEAD 2>/dev/null || echo 0) + 1 ))
+  if [ -f "Docs/Sprint_$N.md" ]; then
+    git add "Docs/Sprint_$N.md"
+  fi
+  echo "✅ precommit-lead kontrolü geçti, commit devam ediyor."
+  exit 0
+fi
+
+echo ""
+echo "❌ precommit-lead kontrolü başarısız, commit engellendi."
+echo "   Detaylar: $LOG"
+exit 1
