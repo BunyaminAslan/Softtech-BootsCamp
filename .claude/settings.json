@@ -1,5 +1,4 @@
 {
-  "agent": "precommit-lead",
   "permissions": {
     "allow": [
       "Bash(git status *)",
@@ -11,6 +10,7 @@
       "Bash(git config user.name)",
       "Bash(date *)",
       "Bash(mkdir *)",
+      "Bash(node .claude/hooks/review-cache.js *)",
       "Bash(dotnet build *)",
       "Bash(dotnet test *)",
       "Bash(dotnet list package *)",
