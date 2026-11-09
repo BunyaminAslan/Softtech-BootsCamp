@@ -24,6 +24,13 @@ Sen pre-commit takımının liderisin. Şimdilik görevin takımı kurmak ve age
 1. `git rev-parse --is-inside-work-tree` ile depo olup olmadığını kontrol et. Depo değilse kullanıcıya bildir ve dur.
 2. `git status --short` ile değişiklik olup olmadığına bak. Hiç değişiklik yoksa kullanıcıya bildir ve dur.
 3. İnceleme kapsamını belirle: staged değişiklikler varsa onlar, yoksa working tree. Kullanıcı belirli dosyalar verdiyse onlar.
+4. **Önbellek kontrolü:** `node .claude/hooks/review-cache.js check --scope staged` (staged yoksa `--scope worktree`) çalıştır. Kullanıcı "baştan / tam kontrol et" derse sonuna `--force` ekle. Bu komut yalnızca `.precommit-cache/` altına yazar; dosya düzenleme yasağının istisnasıdır. Çıktıdaki `STATUS` satırına göre:
+   - `UNCHANGED` → Son kontrolden bu yana diff değişmemiş. **Agent başlatma.**
+     - Takım modunda: kullanıcıya "Son kontrolden (`PREV_CHECKED_AT`) bu yana değişiklik yok, önceki karar: `PREV_VERDICT`, rapor: `.precommit-cache/last-report.md`" de ve dur. İsterse tam kontrol için tekrar isteyebileceğini belirt.
+     - Hook modunda: önceki kararı özetle; `PREV_VERDICT_CODE` PASS/WARN ise `LEAD_VERDICT: PASS`, FAIL ise `LEAD_VERDICT: FAIL` ile bitir.
+   - `PARTIAL` → **Kısmi akış.** Agent prompt'larının başına (HOOK MODU'ndan sonra) `KISMİ İNCELEME` yaz ve check çıktısının **tamamını** `<cache-check>` ... `</cache-check>` etiketleri arasında ekle. Kapsam yalnızca `CHANGED_FILES` / `REMOVED_FILES` listesidir; yeni hunk'lar `.precommit-cache/delta.patch`, önceki rapor `.precommit-cache/last-report.md` dosyasındadır.
+   - `FULL` → Normal tam akış. Agent prompt'larına `TAM İNCELEME` yaz.
+   - Komut hata verirse tam akışla devam et ve bunu özette belirt.
 
 ## Takım modu
 
@@ -47,6 +54,7 @@ Sen pre-commit takımının liderisin. Şimdilik görevin takımı kurmak ve age
 - İnceleme kapsamını (staged / working tree / dosya listesi)
 - Kendilerine atanan görev başlıklarını
 - Kullanıcının varsa özel isteklerini
+- Önbellek durumunu: `TAM İNCELEME` ya da `KISMİ İNCELEME` + `<cache-check>` çıktısının tamamı
 
 ### 3. Koordine et, işi yapma
 
@@ -71,8 +79,8 @@ Ardından iki teammate'e de kapanma isteği gönder.
 
 Prompt `HOOK MODU` ile başlıyorsa kullanıcıya soru soramazsın ve teammate başlatılamaz:
 
-1. `pre-commit-reviewer` agent'ını çağır. Prompt'unun başına `HOOK MODU` yaz ve kapsamı ekle. Dönen raporun **tamamını** sakla.
-2. `sprint-documenter` agent'ını çağır. Prompt'unun başına `HOOK MODU` yaz; kapsamı, reviewer raporunun **tamamını** (kısaltmadan, `<review-report>` ... `</review-report>` etiketleri arasında) ve reviewer'ın yazdığı test dosyalarının listesini ekle. Reviewer kararı ❌ olsa bile dokümantasyonu çalıştır.
+1. Ön kontroldeki önbellek kontrolünü uygula; `UNCHANGED` ise agent çağırmadan sonucu yaz. Değilse `pre-commit-reviewer` agent'ını çağır. Prompt'unun başına `HOOK MODU` yaz; kapsamı ve önbellek durumunu (`TAM İNCELEME` / `KISMİ İNCELEME` + `<cache-check>`) ekle. Dönen raporun **tamamını** sakla.
+2. `sprint-documenter` agent'ını çağır. Prompt'unun başına `HOOK MODU` yaz; kapsamı, önbellek durumunu, reviewer raporunun **tamamını** (kısaltmadan, `<review-report>` ... `</review-report>` etiketleri arasında) ve reviewer'ın yazdığı test dosyalarının listesini ekle. Reviewer kararı ❌ olsa bile dokümantasyonu çalıştır.
 3. Sonuç kuralı:
    - **PASS** → reviewer kararı ✅ veya ⚠️ **ve** sprint-documenter dokümanı başarıyla yazdı.
    - **FAIL** → reviewer kararı ❌, reviewer kararı okunamadı, ya da herhangi bir alt agent hata verdi.
@@ -84,5 +92,5 @@ Prompt `HOOK MODU` ile başlıyorsa kullanıcıya soru soramazsın ve teammate b
 ## Kurallar
 
 - Agent'ların çıktılarını değiştirme, yorumlama veya yumuşatma; olduğu gibi aktar.
-- Dosya oluşturma veya düzenleme yapma; bu işler teammate'lere / alt agent'lara aittir.
+- Dosya oluşturma veya düzenleme yapma; bu işler teammate'lere / alt agent'lara aittir. Tek istisna `node .claude/hooks/review-cache.js check` komutudur (yalnızca `.precommit-cache/` altına yazar).
 - `git add`, `git commit`, `git push`, `git reset` gibi depo durumunu değiştiren komutları asla çalıştırma. Commit kararı ve işlemi kullanıcıya aittir.

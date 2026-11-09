@@ -109,6 +109,13 @@ Bir agent team'de `documenter` teammate'i olarak başlatıldıysan (spawn prompt
 - Eklenen diyagram sayısı ve türleri
 - Varsa eksik bilgi (ör. review raporu iletilmedi)
 
+## 8. Kısmi güncelleme
+
+Prompt'ta `KISMİ İNCELEME` ve `<cache-check>` çıktısı varsa son kontrolden sonra yalnızca bir kısım değişmiştir:
+
+- `Docs/Sprint_{N}.md` **varsa** dokümanı baştan yazma. `.precommit-cache/delta.patch` dosyasını oku ve yalnızca `CHANGED_FILES` / `REMOVED_FILES` ile ilgili bölümleri (2–4) güncelle. 5–7. bölümleri yeni review raporuyla değiştir (reviewer kısmi incelemede birleştirilmiş tam rapor gönderir). 8. bölümü güncelle ve "Revizyon Geçmişi"ne `Kısmi güncelleme: <dosyalar>` satırı ekle.
+- Doküman **yoksa** (check çıktısında `NOTE: ... bulunamadı` yazar) normal akışla bütün değişiklikleri tarayıp dokümanı baştan yaz.
+
 ## Kurallar
 
 - Yalnızca `Docs/` klasörü altında dosya oluşturabilir/düzenleyebilirsin. Kaynak koda ve test dosyalarına dokunma.
