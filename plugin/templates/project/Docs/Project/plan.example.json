@@ -1,0 +1,34 @@
+{
+  "sprint": 1,
+  "goal": "Kullanıcının kendi ifadesiyle ana hedef (örnek: kullanıcı e-posta ve şifreyle giriş yapabilsin)",
+  "scope": [
+    { "id": "G1", "text": "Giriş API'si" },
+    { "id": "G2", "text": "Giriş ekranı" }
+  ],
+  "stories": [
+    { "id": "US-1", "title": "E-posta ile giriş", "scope": ["G1", "G2"], "acceptance": ["Given kayıtlı kullanıcı When doğru şifre Then oturum açılır"] }
+  ],
+  "tasks": [
+    {
+      "id": "S1-01", "tag": "CONTRACT", "title": "Auth sözleşmesi", "owner": "backend", "story": "US-1",
+      "purpose": "Login uç noktasının sözleşmesini yayınlamak", "input": "US-1 kabul kriterleri", "output": "Docs/Contracts/auth.yaml",
+      "dependsOn": [], "softDependsOn": [], "done": ["Docs/Contracts/auth.yaml login isteği/yanıtı ve hata kodlarını içerir"],
+      "estimate": "S", "critical": true
+    },
+    {
+      "id": "S1-02", "tag": "BACKEND", "title": "POST /auth/login", "owner": "backend", "story": "US-1",
+      "dependsOn": ["S1-01"], "done": ["Test komutu (project.md > Komutlar) geçer; K1 kanıtı", "Yanıt sözleşmeye uyar"],
+      "estimate": "M", "critical": true
+    },
+    {
+      "id": "S1-03", "tag": "WEB", "title": "Login sayfası (mock ile)", "owner": "web", "story": "US-1",
+      "dependsOn": ["S1-01"], "softDependsOn": ["S1-02"], "done": ["Bileşen testleri geçer", "Tasarım incelemesi Docs/Design/reviews/ altında, puan ≥ eşik (K8)"],
+      "estimate": "M", "ui": true
+    },
+    {
+      "id": "S1-04", "tag": "TEST", "title": "Giriş E2E + go/no-go", "owner": "tester", "story": "US-1",
+      "dependsOn": ["S1-02", "S1-03"], "done": ["E2E paketi tek seferlik modda geçer; K1 kanıtı"],
+      "estimate": "S"
+    }
+  ]
+}

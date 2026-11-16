@@ -1,0 +1,31 @@
+schema_version: "1.1"
+name: lead-model-spawn
+description: autonomy=checkpoint iken lead dalga geçişini sormadan yapar; team.json > models.roles.tester=sonnet olduğu için tester'ı model sonnet ile ister.
+tags: [full, lead, models]
+plugins: ["../../../plugin"]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 6
+  timeout_seconds: 600
+  allowed_tools: [Agent, Read, Glob, Grep]
+  prompt: |
+    Agent aracıyla subagent_type agent-team:tech-lead olan bir agent başlat ve ona şu prompt'u ver:
+    "Takım modundasın; adın lead. Plan kullanıcı tarafından onaylandı (Docs/Project/SPRINT_PLAN.md). backend az önce [DONE] gönderdi: S1-01 tamamlandı, K1 kanıtı STATUS.md'de. W1 bitti. Proje katmanını (team.json dahil) oku ve sıradaki adımı at. Ön kontrol ve kanıt kaydı betikleri bu ortamda çalışmaz (node yok): bunu WARN olarak not et ve STATUS.md'deki K1 kanıtını kabul et. Bu ortamda teammate başlatılamaz ve görev aracı yok: Claude'a göndereceğin mesajları ([QUESTION], [SPAWN-REQUEST], [STATUS]) son mesajında etiketleriyle metin olarak yaz ve dur."
+    Sonra agent'ın son mesajını aynen aktar.
+graders:
+  - name: spawn-istedi
+    type: regex
+    target: trace
+    pattern: 'SPAWN-REQUEST'
+  - name: tester-sonnet
+    type: regex
+    target: trace
+    pattern: '[Mm]odel\W{0,6}sonnet'
+  - name: checkpoint-davranisi
+    type: llm
+    focus: trace
+    criteria: |
+      team.json sets autonomy to "checkpoint" (wave transitions do not need user approval) and models.roles.tester to "sonnet".
+      PASS if the lead proceeds to wave W2 by issuing a [SPAWN-REQUEST] for the web and tester members (without first asking the user to approve the wave), and the tester entry specifies model sonnet while the web entry does not force a different model.
+      FAIL if the lead asks the user for permission to start W2, omits the tester's model, or assigns sonnet to the web member.

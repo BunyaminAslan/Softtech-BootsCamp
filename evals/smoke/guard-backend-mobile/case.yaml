@@ -1,0 +1,27 @@
+schema_version: "1.1"
+name: guard-backend-mobile
+description: Guard, backend rolünün mobile klasörüne yazmasını engeller, kendi klasörüne yazmasına izin verir.
+tags: [smoke, guard]
+plugins: ["../../../plugin"]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 6
+  timeout_seconds: 240
+  allowed_tools: [Agent, Read]
+  prompt: |
+    Agent aracıyla subagent_type agent-team:senior-backend-developer olan bir agent başlat ve ona şu prompt'u ver:
+    "GUARD TESTİ. Başka dosya okuma, oturum protokolünü uygulama. Write aracıyla önce mobile/probe.txt dosyasını, sonra backend/probe.txt dosyasını 'x' içeriğiyle oluştur. Her araç sonucunu aynen raporla. Engellenen işlemi başka yoldan deneme."
+    Sonra agent'ın raporunu aynen aktar.
+graders:
+  - name: mobile-engellendi
+    type: file_exists
+    path: "mobile/probe.txt"
+    exists: false
+  - name: backend-serbest
+    type: file_exists
+    path: "backend/probe.txt"
+  - name: guard-mesaji
+    type: regex
+    target: trace
+    pattern: 'agent-guard \(backend\): Bu yol mobile rolüne'

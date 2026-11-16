@@ -1,0 +1,22 @@
+{
+  "version": 5,
+  "roles": {
+    "lead": { "enabled": true },
+    "backend": { "enabled": true, "profile": null, "paths": ["backend/"] },
+    "mobile": { "enabled": true, "profile": null, "paths": ["mobile/", "Docs/Mobile/"] },
+    "web": { "enabled": true, "profile": null, "paths": ["web/", "Docs/Web/"] },
+    "tester": { "enabled": true, "profile": null, "paths": [] }
+  },
+  "paths": {
+    "contract": "Docs/Contracts/",
+    "projectDocs": "Docs/Project/",
+    "adr": "Docs/ADR/",
+    "testDocs": "Docs/Test/"
+  },
+  "protected": [],
+  "evidence": { "mode": "warn", "maxAgeHours": 24 },
+  "sandbox": { "allowedDomains": [] },
+  "autonomy": "checkpoint",
+  "models": { "roles": {}, "tasks": {} },
+  "design": { "gate": "warn", "minScore": 8, "variants": ["mobile-light", "mobile-dark", "desktop-light", "desktop-dark"], "reviews": "Docs/Design/reviews/" }
+}

@@ -1,0 +1,41 @@
+schema_version: "1.1"
+name: evidence-id
+description: Takım rolünün komutu kanıt kaydına yazılır; ajan başarılı (exit 0) kaydın kimliğini (Kanıt L-…) raporunda gösterir.
+tags: [smoke, evidence]
+plugins: ["../../../plugin"]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 6
+  timeout_seconds: 300
+  allowed_tools: [Agent, Read]
+  # claude plugin eval sandbox'ında (Claude Code 2.1.322) Bash aracı her çağrıdan sonra çalışma dizini takip
+  # dosyasını salt okunur $TMPDIR'a yazamıyor ve komut geçse de exit 1 dönüyor. Gerçek sandbox'ta görülmez.
+  prompt: |
+    Agent aracıyla subagent_type agent-team:senior-backend-developer olan bir agent başlat ve ona şu prompt'u ver:
+    "Backend testlerini proje kökünden şu komutla çalıştır: 'sh backend/test.sh' (cd kullanma). Başka iş yapma. TEAM_RULES K1'e göre Komut, Dizin, Sonuç ve Kanıt satırlarıyla raporla; Kanıt satırına hook'un verdiği kimliği ve parantez içindeki exit/süre bilgisini aynen yaz."
+    Sonra agent'ın raporunu aynen aktar.
+# Hook'un additionalContext'i subagent dökümündedir, ana izde (trace) görünmez; kimliğin uydurulmadığını
+# L0 testleri (tests/hooks/ledger.test.js) güvenceye alır. Ajanın kendi raporu izde araç sonucu olarak
+# bulunur; ana oturumun aktarımı özetleyebileceği için ajan davranışı izden ölçülür.
+graders:
+  - name: kanit-kimligi
+    type: regex
+    target: trace
+    # Biçime toleranslı: "Kanıt: L-…", "**Kanıt:** `L-…`", "Kanıt | L-…"
+    pattern: 'Kanıt\W{0,8}L-[0-9a-f]{8}'
+  - name: kayit-durumu-aktarildi
+    type: regex
+    target: trace
+    # Ajan hook'un kimlik satırındaki durumu "(exit N, …)" aynen aktarır. Eval sandbox'ında Bash aracı her
+    # çağrıda exit 1 döndüğü için (bkz. README > Bilinen sorunlar) burada exit 0 beklenmez; başarılı kaydı
+    # gerçek sandbox'taki canlı test ve L0 testleri doğrular.
+    pattern: 'L-[0-9a-f]{8}\W{0,4}\(exit \d'
+  - name: sonuc-sayilari
+    type: regex
+    target: trace
+    pattern: 'Sonuç[\s\S]{0,160}?(pass\W{0,3}2\b|\b2\s*/\s*2\b|\b2\b\D{0,12}(geç|pass|başarı))'
+  - name: test-calisti
+    type: tool_used
+    tool: Bash
+    input_match: 'test\.sh'

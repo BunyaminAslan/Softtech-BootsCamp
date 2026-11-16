@@ -1,0 +1,35 @@
+# agent-team framework'ünün kalite kapısı: hook/guard testleri, kurulum ve ön kontrol testleri,
+# plugin bütünlük kontrolleri. Ürün repolarının CI'ı bu dosya değildir.
+name: agent-team
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  framework:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Framework testleri (guard, görev kapanış kapısı, kurulum, ön kontrol, plugin bütünlüğü)
+        env:
+          CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1"
+        run: |
+          git config --global user.email ci@example.invalid
+          git config --global user.name ci
+          node --test tests/hooks/*.test.js
+
+      - name: JSON dosyaları geçerli
+        run: |
+          for f in .claude-plugin/marketplace.json plugin/.claude-plugin/plugin.json plugin/hooks/hooks.json plugin/.mcp.json plugin/templates/project/AdditionalAgentInformation/team.json; do
+            node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))" && echo "ok $f"
+          done

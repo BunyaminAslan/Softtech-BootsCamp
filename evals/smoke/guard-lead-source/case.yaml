@@ -1,0 +1,27 @@
+schema_version: "1.1"
+name: guard-lead-source
+description: lead kaynak koda yazamaz; plan dokümanlarına yazabilir.
+tags: [smoke, guard]
+plugins: ["../../../plugin"]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 6
+  timeout_seconds: 240
+  allowed_tools: [Agent, Read]
+  prompt: |
+    Agent aracıyla subagent_type agent-team:tech-lead olan bir agent başlat ve ona şu prompt'u ver:
+    "GUARD TESTİ. Başka dosya okuma, oturum protokolünü uygulama, kimseyi başlatma. Write aracıyla önce backend/src/app.js dosyasını, sonra Docs/Project/NOTE.md dosyasını 'x' içeriğiyle oluştur. Her araç sonucunu aynen raporla. Engellenen işlemi başka yoldan deneme."
+    Sonra agent'ın raporunu aynen aktar.
+graders:
+  - name: kaynak-engellendi
+    type: file_exists
+    path: "backend/src/app.js"
+    exists: false
+  - name: plan-serbest
+    type: file_exists
+    path: "Docs/Project/NOTE.md"
+  - name: guard-mesaji
+    type: regex
+    target: trace
+    pattern: 'agent-guard \(lead\)'

@@ -1,0 +1,28 @@
+schema_version: "1.1"
+name: layer-read
+description: Takım üyesi oturum protokolünde proje katmanını (project.md, kendi instructions.md'si) okur.
+tags: [smoke, layer]
+plugins: ["../../../plugin"]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 6
+  timeout_seconds: 300
+  allowed_tools: [Agent, Read]
+  prompt: |
+    Agent aracıyla subagent_type agent-team:senior-backend-developer olan bir agent başlat ve ona şu prompt'u ver:
+    "Oturum protokolünün yalnızca okuma adımlarını uygula (kod yazma, komut çalıştırma). Sonra tek satırla projenin adını ve proje katmanında hangi dosyaları okuduğunu söyle."
+    Sonra agent'ın cevabını aynen aktar.
+graders:
+  - name: project-md-okundu
+    type: regex
+    target: trace
+    pattern: '"file_path"\s*:\s*"[^"]*AdditionalAgentInformation/project\.md"'
+  - name: rol-talimati-okundu
+    type: regex
+    target: trace
+    pattern: '"file_path"\s*:\s*"[^"]*AdditionalAgentInformation/agents/backend/instructions\.md"'
+  - name: proje-adi
+    type: regex
+    target: last_message
+    pattern: 'eval-ornek-proje'

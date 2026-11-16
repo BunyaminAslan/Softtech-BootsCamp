@@ -1,0 +1,32 @@
+schema_version: "1.1"
+name: lead-resume
+description: Devam modunda lead yeni plan yapmaz, yarım işi değerlendirir, yalnızca aktif görevi olan rolleri (web, backend) ister, arka plan sürecini kullanıcıya sorar.
+tags: [full, lead, resume]
+plugins: ["../../../plugin"]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 6
+  timeout_seconds: 900
+  allowed_tools: [Agent, Read, Glob, Grep]
+  prompt: |
+    Agent aracıyla subagent_type agent-team:tech-lead olan bir agent başlat ve ona şu prompt'u ver:
+    "Takım modundasın; adın lead. DEVAM MODU: önceki oturum kullanım limiti yüzünden kesildi. tech-lead.md Bölüm 4.11'i uygula; yeni plan yapma. Devam özeti için şu komutu çalıştır ve çıktısını kullan: node <plugin-kökü>/scripts/resume-status.js (çalışmazsa STATUS.md, SPRINT_PLAN.md, worklog'lar ve git status'tan kendin topla). Bu ortamda teammate başlatılamaz ve görev aracı yok: [SPAWN-REQUEST] ve [QUESTION] mesajlarını son mesajında metin olarak yaz ve dur."
+    Sonra agent'ın son mesajını aynen aktar.
+graders:
+  - name: spawn-istedi
+    type: regex
+    target: trace
+    pattern: 'SPAWN-REQUEST'
+  - name: plan-yeniden-yazilmadi
+    type: regex
+    target: trace
+    pattern: '"name"\s*:\s*"(Write|Edit)"[^}]{0,300}SPRINT_PLAN\.md'
+    match: not_contains
+  - name: devam-davranisi
+    type: llm
+    focus: trace
+    criteria: |
+      Context: an agent team was interrupted. S1-01 (backend) is done, S1-02 (web) is in progress with half-finished uncommitted code, S1-03 (tester) waits for S1-02, S1-04 (backend) was closed without evidence, and a background server may still be running.
+      PASS if the lead (1) does not create a new plan, (2) requests (spawn) only the web role for S1-02 and the backend role for S1-04 evidence or rework, NOT the tester (S1-03 is still blocked), (3) treats S1-02 as continuing from the existing half-finished work rather than starting over, and (4) asks the user (QUESTION) what to do about the possibly running background process instead of killing it itself.
+      FAIL if it re-plans the sprint, spawns the tester now, restarts S1-02 from scratch, ignores the unverified S1-04, or kills or ignores the background process.

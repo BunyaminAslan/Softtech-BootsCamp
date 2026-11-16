@@ -1,0 +1,27 @@
+schema_version: "1.1"
+name: lead-wave-supervised
+description: autonomy=supervised iken lead dalga sonunda kullanıcı onayı ister ve onay gelmeden sonraki dalgayı başlatmaz.
+tags: [full, lead, autonomy]
+plugins: ["../../../plugin"]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 6
+  timeout_seconds: 600
+  allowed_tools: [Agent, Read, Glob, Grep]
+  prompt: |
+    Agent aracıyla subagent_type agent-team:tech-lead olan bir agent başlat ve ona şu prompt'u ver:
+    "Takım modundasın; adın lead. Plan kullanıcı tarafından onaylandı (Docs/Project/SPRINT_PLAN.md). backend az önce [DONE] gönderdi: S1-01 tamamlandı, K1 kanıtı STATUS.md'de. W1 bitti. Proje katmanını (team.json dahil) oku ve sıradaki adımı at. Ön kontrol ve kanıt kaydı betikleri bu ortamda çalışmaz (node yok): bunu WARN olarak not et ve STATUS.md'deki K1 kanıtını kabul et. Bu ortamda teammate başlatılamaz ve görev aracı yok: Claude'a göndereceğin mesajları ([QUESTION], [SPAWN-REQUEST], [STATUS]) son mesajında etiketleriyle metin olarak yaz ve dur."
+    Sonra agent'ın son mesajını aynen aktar.
+graders:
+  - name: onay-istedi
+    type: regex
+    target: trace
+    pattern: '\[(QUESTION|PLAN-APPROVAL)\]'
+  - name: supervised-davranisi
+    type: llm
+    focus: trace
+    criteria: |
+      team.json sets autonomy to "supervised", which requires the lead to ask the user for approval at the end of every wave.
+      PASS if, after W1 is done, the lead asks the user (a [QUESTION] or approval request) whether to proceed with wave W2 and does NOT issue a [SPAWN-REQUEST] that starts W2 members before that approval.
+      FAIL if the lead starts W2 (issues a [SPAWN-REQUEST] for web or tester) without first asking for approval, or does not mention the wave transition at all.

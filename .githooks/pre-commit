@@ -1,93 +1,39 @@
 #!/bin/sh
-# Commit öncesi precommit-lead'i (pre-commit-reviewer + sprint-documenter) çalıştırır.
-# Sonuç FAIL ise commit engellenir. Acil durumda atlamak için: git commit --no-verify
-#
-# Önbellek: Son kontrolden bu yana staged diff'te değişiklik yoksa agent'lar çalışmaz,
-# önceki karar kullanılır. Bir kısmı değiştiyse yalnızca değişen hunk'lar incelenir.
-# Önbelleği yok sayıp tam kontrol için: PRECOMMIT_FORCE=1 git commit ...
-# Önbelleği sıfırlamak için:            node .claude/hooks/review-cache.js reset
+# Framework reposunun kendi pre-commit kontrolü (ürün repolarına kurulan hook bu değil:
+# o, plugin/templates/githooks/pre-commit şablonudur).
+# Deterministik ve hızlıdır: hook testleri + (claude varsa) plugin/marketplace doğrulaması.
+# Atlamak için (acil durum): git commit --no-verify
 
 ROOT=$(git rev-parse --show-toplevel) || exit 1
 cd "$ROOT" || exit 1
 
-# Staged değişiklik yoksa yapılacak bir şey yok
-if git diff --cached --quiet; then
-  exit 0
-fi
-
-N=$(( $(git rev-list --count HEAD 2>/dev/null || echo 0) + 1 ))
-DOC="Docs/Sprint_$N.md"
-CACHE_JS="$ROOT/.claude/hooks/review-cache.js"
-
-# --- Önbellek kontrolü ---------------------------------------------------------
-STATUS=""
-if command -v node >/dev/null 2>&1 && [ -f "$CACHE_JS" ]; then
-  CHECK_OUT=$(node "$CACHE_JS" check --scope staged 2>&1)
-  if [ $? -eq 0 ]; then
-    STATUS=$(printf '%s\n' "$CHECK_OUT" | sed -n 's/^STATUS: //p')
-    PREV=$(printf '%s\n' "$CHECK_OUT" | sed -n 's/^PREV_VERDICT_CODE: //p')
-    PREV_LINE=$(printf '%s\n' "$CHECK_OUT" | sed -n 's/^PREV_VERDICT: //p')
-    PREV_AT=$(printf '%s\n' "$CHECK_OUT" | sed -n 's/^PREV_CHECKED_AT: //p')
-  else
-    echo "⚠️  Önbellek kontrolü hata verdi, tam kontrol yapılacak:"
-    printf '%s\n' "$CHECK_OUT"
-  fi
-else
-  echo "⚠️  node veya review-cache.js bulunamadı, önbelleksiz tam kontrol yapılacak."
-fi
-
-if [ "$STATUS" = "UNCHANGED" ]; then
-  echo "♻️  Son kontrolden ($PREV_AT) bu yana staged diff değişmedi; agent'lar tekrar çalıştırılmadı."
-  echo "   Önceki karar: $PREV_LINE"
-  if [ "$PREV" = "FAIL" ]; then
-    echo ""
-    echo "❌ Önceki kontrol commit'i engellemişti ve o zamandan beri bir şey değişmedi, commit engellendi."
-    echo "   Rapor: .precommit-cache/last-report.md"
-    echo "   Bulguları düzeltip tekrar deneyin ya da tam kontrol için: PRECOMMIT_FORCE=1 git commit ..."
-    exit 1
-  fi
-  [ -f "$DOC" ] && git add "$DOC"
-  echo "✅ Önceki kontrol geçerli, commit devam ediyor."
-  exit 0
-fi
-
-# --- Agent akışı (FULL veya PARTIAL) ---------------------------------------------
-# Claude CLI: önce PATH, yoksa VS Code eklentisindeki en yeni sürüm
-CLAUDE_BIN=$(command -v claude)
-if [ -z "$CLAUDE_BIN" ]; then
-  CLAUDE_BIN=$(ls -d "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude.exe 2>/dev/null | sort -V | tail -n 1)
-fi
-if [ -z "$CLAUDE_BIN" ]; then
-  echo "❌ Claude CLI bulunamadı, commit engellendi."
-  echo "   Kurulum: npm install -g @anthropic-ai/claude-code"
+if ! command -v node >/dev/null 2>&1; then
+  echo "❌ node bulunamadı; framework testleri çalıştırılamadı." >&2
   exit 1
 fi
 
-LOG_DIR="$(git rev-parse --git-dir)/precommit-lead"
-mkdir -p "$LOG_DIR"
-LOG="$LOG_DIR/last-run.log"
+echo "🧪 agent-team framework testleri..."
+if ! node --test tests/hooks/*.test.js > .git/agent-team-tests.log 2>&1; then
+  grep -E "^(not ok|✖)" .git/agent-team-tests.log | head -20
+  echo "❌ Testler başarısız, commit engellendi. Ayrıntı: .git/agent-team-tests.log" >&2
+  exit 1
+fi
+grep -E "^ℹ (tests|pass|fail)" .git/agent-team-tests.log
 
-if [ "$STATUS" = "PARTIAL" ]; then
-  echo "🔍 Son kontrolden sonra bazı değişiklikler farklılaşmış; yalnızca bunlar incelenecek:"
-  printf '%s\n' "$CHECK_OUT" | sed -n '/^CHANGED_FILES:/,$p'
+if command -v claude >/dev/null 2>&1; then
+  echo "🔎 claude plugin validate..."
+  if ! claude plugin validate ./plugin >/dev/null 2>&1; then
+    claude plugin validate ./plugin
+    echo "❌ Plugin doğrulaması başarısız, commit engellendi." >&2
+    exit 1
+  fi
+  if ! claude plugin validate . >/dev/null 2>&1; then
+    claude plugin validate .
+    echo "❌ Marketplace doğrulaması başarısız, commit engellendi." >&2
+    exit 1
+  fi
+  echo "✔ plugin ve marketplace geçerli"
 else
-  echo "🔍 precommit-lead commit öncesi tam kontrolü çalıştırıyor (birkaç dakika sürebilir)..."
+  echo "⚠️  claude bulunamadı; plugin doğrulaması atlandı."
 fi
-
-"$CLAUDE_BIN" -p --agent precommit-lead --permission-mode acceptEdits \
-  "HOOK MODU: Staged değişiklikler için commit öncesi akışı çalıştır (pre-commit-reviewer ardından sprint-documenter). Kapsam: staged. Önce önbellek kontrolünü (review-cache.js check --scope staged) çalıştır ve sonucuna göre tam ya da kısmi akış uygula." \
-  < /dev/null 2>&1 | tee "$LOG"
-
-VERDICT=$(grep -o 'LEAD_VERDICT: [A-Z]*' "$LOG" | tail -n 1)
-
-if [ "$VERDICT" = "LEAD_VERDICT: PASS" ]; then
-  # Sprint dokümanını bu commit'e dahil et
-  [ -f "$DOC" ] && git add "$DOC"
-  echo "✅ precommit-lead kontrolü geçti, commit devam ediyor."
-  exit 0
-fi
-
-echo ""
-echo "❌ precommit-lead kontrolü başarısız, commit engellendi."
-echo "   Detaylar: $LOG"
-exit 1
+exit 0

@@ -1,0 +1,14 @@
+{
+  "name": "agent-team-marketplace",
+  "description": "agent-team framework'ünün dağıtıldığı marketplace",
+  "owner": {
+    "name": "BunyaminAslan"
+  },
+  "plugins": [
+    {
+      "name": "agent-team",
+      "source": "./plugin",
+      "description": "Generic çok-agent'lı yazılım takımı (tech-lead, backend, mobile, web, tester) ve kalite kapıları"
+    }
+  ]
+}

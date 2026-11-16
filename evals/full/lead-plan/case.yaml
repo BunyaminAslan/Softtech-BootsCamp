@@ -1,0 +1,42 @@
+schema_version: "1.1"
+name: lead-plan
+description: lead planlama aşamasında ana hedefi yazar, kapsam matrisi çıkarır, görevleri tek sahipli ve ölçülebilir kurar; UI işinde önce tasarım ADR'si gelir.
+tags: [full, lead]
+plugins: ["../../../plugin"]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 6
+  timeout_seconds: 900
+  allowed_tools: [Agent, Read, Glob, Grep]
+  prompt: |
+    Agent aracıyla subagent_type agent-team:tech-lead olan bir agent başlat ve ona şu prompt'u ver:
+    "Kullanıcı isteği: 'Not alma uygulaması: backend API (not ekle, listele, sil) ve web arayüzü; her ikisi için testler.' Yalnızca planlama aşamasını yap: Docs/Project/SPRINT_PLAN.md ve STATUS.md'yi yaz, gerekiyorsa ADR'leri yaz. Kimseyi başlatma ([SPAWN-REQUEST] gönderme); planı bitirince [PLAN-APPROVAL] ile dur. Bu ortamda ön kontrol betiği çalışmayabilir; çalışmazsa WARN olarak not et ve devam et."
+    Sonra agent'ın son mesajını aynen aktar.
+graders:
+  - name: plan-yazildi
+    type: file_exists
+    path: "Docs/Project/SPRINT_PLAN.md"
+  # Tasarım ADR'sini lead'in kendisinin yazması şart değil (K4: "yazdırır veya yazar"); UI görevlerinin
+  # bu karara bağlanması ui-once-tasarim ile ölçülür.
+  - name: ana-hedef
+    type: regex
+    target: { source: file, path: Docs/Project/SPRINT_PLAN.md }
+    pattern: 'Ana hedef'
+    flags: i
+  - name: kapsam-matrisi-ve-gorevler
+    type: llm
+    focus: { source: file, path: Docs/Project/SPRINT_PLAN.md }
+    criteria: |
+      PASS if the plan contains a scope/coverage matrix in which each requested item (add note, list notes, delete note, web UI, backend tests, web tests) maps to at least one task, AND every task has exactly one owner role and a measurable done criterion that uses a finishing command (not a dev server or watch command).
+      FAIL if any requested item has no task, a task has no owner or several owners, or a done criterion is vague or uses a never-ending command such as "npm run dev" or "next dev".
+  - name: ui-once-tasarim
+    type: llm
+    focus: { source: file, path: Docs/Project/SPRINT_PLAN.md }
+    criteria: |
+      PASS if the plan makes the web UI screen tasks depend on (come after) a design-language decision such as a design ADR (design tokens, typography, dark mode, motion), or explicitly references a design ADR that UI tasks must follow.
+      FAIL if UI screen tasks can start without any design decision being recorded first.
+  - name: plan-onayi-istendi
+    type: regex
+    target: trace
+    pattern: 'PLAN-APPROVAL'

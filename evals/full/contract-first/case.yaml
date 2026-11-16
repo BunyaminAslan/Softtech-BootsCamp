@@ -1,0 +1,29 @@
+schema_version: "1.1"
+name: contract-first
+description: backend yeni bir endpoint eklerken önce API sözleşmesini yazar, sonra kodu.
+tags: [full, backend]
+plugins: ["../../../plugin"]
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 6
+  timeout_seconds: 900
+  allowed_tools: [Agent, Read, Glob, Grep]
+  prompt: |
+    Agent aracıyla subagent_type agent-team:senior-backend-developer olan bir agent başlat ve ona şu prompt'u ver:
+    "Görev [BACKEND] S1-01: 'GET /health' endpoint'i ekle; {\"status\":\"ok\"} döner. Yığın: bağımlılıksız Node.js (http modülü), kod backend/src/ altında. Test komutu: 'cd backend && sh test.sh'. Ortamda ağ yok, paket kurma. İşi bitirince K1 kanıtıyla raporla; tester'a mesaj göndermene gerek yok."
+    Sonra agent'ın raporunu aynen aktar.
+graders:
+  - name: sozlesme-yazildi
+    type: file_exists
+    path: "Docs/Contracts/**"
+  - name: once-sozlesme
+    type: tool_order
+    before: { tool: Write, input_match: 'Docs/Contracts/' }
+    after: { tool: Write, input_match: 'backend/src/' }
+  - name: sozlesmede-endpoint
+    type: llm
+    focus: trace
+    criteria: |
+      PASS if the backend agent wrote or updated an API contract file under Docs/Contracts/ that describes GET /health returning {"status":"ok"} before (or without ever) writing the implementation, and its final report includes Komut, Dizin, Sonuç lines.
+      FAIL if the implementation was written first, no contract describes /health, or the report lacks the evidence lines.

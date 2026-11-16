@@ -1,389 +1,189 @@
-# Softtech BootsCamp
+# agent-team
 
-Bu projede her commit öncesinde Claude Code agent'ları değişiklikleri otomatik olarak inceler, test eder ve dokümante eder. Kontrolden geçmeyen değişiklikler commit edilemez.
+**agent-team**, Claude Code için generic, çok-agent'lı bir yazılım takımı framework'üdür. Bir tech-lead (mimar ve organizatör) ile backend, mobile, web ve tester rollerinden oluşan bir takımı; yetki guard'ını, kanıt kuralını, görev kapanış kapısını ve commit öncesi inceleme hattını **tek bir plugin** olarak herhangi bir projeye bağlamanızı sağlar.
 
-Bu doküman sistemin nasıl çalıştığını, nasıl kurulacağını ve günlük kullanımda bilinmesi gerekenleri anlatır.
+Framework projeden bağımsızdır. Projeye ait bağlam, kurallar, hafıza ve yığın seçimi framework'te değil, ürün reposundaki `AdditionalAgentInformation/` klasöründe durur.
+
+```
+/plugin install agent-team --marketplace BunyaminAslan/Softtech-BootsCamp
+```
+
+Eski sürümlerde (Claude Code < 2.1.275) iki adımda:
+
+```
+/plugin marketplace add BunyaminAslan/Softtech-BootsCamp
+/plugin install agent-team@agent-team-marketplace
+```
+
+Kurulum, proje bağlama ve hook/guard ayrıntıları: **[PLUGIN.md](PLUGIN.md)**.
 
 ---
 
 ## İçindekiler
 
-1. [Genel Bakış](#1-genel-bakış)
-2. [Kurulum](#2-kurulum)
-3. [Günlük Kullanım](#3-günlük-kullanım)
-4. [Commit Ne Zaman Engellenir?](#4-commit-ne-zaman-engellenir)
-5. [Sprint Dokümanları](#5-sprint-dokümanları)
-6. [Bilinmesi Gerekenler](#6-bilinmesi-gerekenler)
-7. [Sorun Giderme](#7-sorun-giderme)
-8. [Dosya Yapısı](#8-dosya-yapısı)
-9. [Agent Team Modu](#9-agent-team-modu)
+1. [Nasıl çalışır](#1-nasıl-çalışır)
+2. [Katmanlar: framework, profil, proje](#2-katmanlar-framework-profil-proje)
+3. [Roller](#3-roller)
+4. [Bir isteğin yaşam döngüsü](#4-bir-isteğin-yaşam-döngüsü)
+5. [Kalite kapıları](#5-kalite-kapıları)
+6. [Commit öncesi inceleme hattı](#6-commit-öncesi-inceleme-hattı)
+7. [Repo yapısı](#7-repo-yapısı)
+8. [Bilinen sınırlamalar ve doğrulama durumu](#8-bilinen-sınırlamalar-ve-doğrulama-durumu)
+9. [Framework'ü geliştirmek](#9-frameworkü-geliştirmek)
 
 ---
 
-## 1. Genel Bakış
+## 1. Nasıl çalışır
 
-Sistem üç agent ve bir git hook'undan oluşur:
-
-| Bileşen | Görevi |
-|---|---|
-| `precommit-lead` | Pre-commit takımının lideri. Etkileşimli oturumda takımı kurar ve koordine eder; commit sırasında alt agent'ları sırayla çağırır. Kendisi kod incelemez, dosya yazmaz. |
-| `pre-commit-reviewer` | Değişiklikleri SOLID ve yazılım tasarımı açısından inceler, eksik unit testleri yazıp çalıştırır, güvenlik taraması yapar ve bir karar verir (✅ / ⚠️ / ❌). |
-| `sprint-documenter` | Değişiklikleri, akış diyagramlarını ve reviewer'ın raporunu `Docs/Sprint_{N}.md` dosyasına yazar. |
-| `.githooks/pre-commit` | Her `git commit`'te `precommit-lead`'ı çalıştırır, sonuca göre commit'i durdurur ya da devam ettirir. |
-
-### Akış
-
-```mermaid
-sequenceDiagram
-    actor Dev as Geliştirici
-    participant Git as git commit
-    participant Hook as .githooks/pre-commit
-    participant Orc as precommit-lead
-    participant Rev as pre-commit-reviewer
-    participant Doc as sprint-documenter
-
-    Dev->>Git: git commit
-    Git->>Hook: pre-commit hook'u tetiklenir
-    Hook->>Orc: claude -p --agent precommit-lead (HOOK MODU)
-    Orc->>Rev: Staged değişiklikleri incele
-    Rev-->>Orc: Review raporu + karar (✅ / ⚠️ / ❌)
-    Orc->>Doc: Kapsam + review raporunun tamamı
-    Doc-->>Orc: Docs/Sprint_N.md yazıldı
-    Orc-->>Hook: LEAD_VERDICT: PASS / FAIL
-    alt PASS
-        Hook->>Git: Docs/Sprint_N.md commit'e eklenir, commit devam eder
-    else FAIL
-        Hook-->>Dev: Commit engellenir, log yolu gösterilir
-    end
-```
-
-Bir subagent başka bir subagent'ı çağıramadığı için `precommit-lead` subagent olarak değil, ana oturum agent'ı olarak çalışır. Reviewer'ın raporu sprint-documenter'a dosya üzerinden değil, doğrudan precommit-lead aracılığıyla aktarılır.
-
----
-
-## 2. Kurulum
-
-Repoyu klonlayan herkesin aşağıdaki adımları **bir kez** yapması gerekir.
-
-### 2.1. Claude Code
-
-Hook, Claude Code CLI'ını kullanır. Önce PATH'teki `claude` komutunu arar, bulamazsa VS Code eklentisinin içindeki `claude.exe`'yi kullanır.
-
-- VS Code'da **Claude Code** eklentisi kuruluysa ek bir şey gerekmez.
-- Eklenti yoksa ya da terminalden de kullanmak istiyorsanız CLI'ı kurun:
-
-  ```bash
-  npm install -g @anthropic-ai/claude-code
-  ```
-
-- Claude Code'a en az bir kez giriş yapmış olmanız gerekir (`claude` komutunu çalıştırıp oturum açın).
-
-### 2.2. Git hook'unu etkinleştirme
-
-Git, hook klasörünü repo ile birlikte taşımaz. Klonladıktan sonra proje kök dizininde şunu çalıştırın:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-Kontrol etmek için:
-
-```bash
-git config core.hooksPath
-# Çıktı: .githooks
-```
-
-> ⚠️ Bu adım atlanırsa commit'ler **hiçbir kontrol yapılmadan** atılır.
-
-### 2.3. Agent izinleri
-
-Hook, agent'ları soru sorulamayan bir modda çalıştırır. Bu modda izin verilmemiş komutlar sessizce reddedilir. İzinler eksikse agent'lar değişiklikleri okuyamaz ya da testleri çalıştıramaz ve her commit engellenir.
-
-[.claude/settings.json](.claude/settings.json) dosyasında şu izinlerin bulunduğundan emin olun:
-
-```json
-{
-  "agent": "precommit-lead",
-  "permissions": {
-    "allow": [
-      "Bash(git status *)", "Bash(git diff *)", "Bash(git log *)",
-      "Bash(git rev-list *)", "Bash(git rev-parse *)", "Bash(git branch *)",
-      "Bash(git config user.name)", "Bash(date *)", "Bash(mkdir *)",
-      "Bash(dotnet build *)", "Bash(dotnet test *)", "Bash(dotnet list package *)",
-      "Bash(npm test *)", "Bash(npm run test *)", "Bash(npm run build *)", "Bash(npm audit *)",
-      "Bash(npx jest *)", "Bash(npx vitest *)", "Bash(mvn test *)", "Bash(gradle test *)",
-      "Bash(pytest *)", "Bash(python -m pytest *)"
-    ]
-  }
-}
-```
-
-Bu listede yalnızca okuma, build ve test komutları vardır. `git add`, `git commit`, `git push` ve dosya silme gibi komutlar bilerek dışarıda bırakılmıştır. Projeye yeni bir build veya test aracı eklenirse ilgili komutu da bu listeye ekleyin.
-
-Dosya düzenleme izinleri hook tarafından `--permission-mode acceptEdits` ile verilir. Agent'ların kendi kuralları gereği reviewer yalnızca test dosyalarına, sprint-documenter yalnızca `Docs/` klasörüne yazar.
-
----
-
-## 3. Günlük Kullanım
-
-### Otomatik (commit sırasında)
-
-Normal şekilde commit atın; kontrol kendiliğinden çalışır:
-
-```bash
-git add .
-git commit -m "Sipariş servisine iptal özelliği eklendi"
-```
-
-Terminalden, VS Code'un Source Control panelinden ya da Claude'dan atılan bütün commit'ler bu kontrolden geçer.
-
-Commit sırasında şuna benzer bir çıktı görürsünüz:
-
-```
-🔍 precommit-lead commit öncesi kontrolü çalıştırıyor (birkaç dakika sürebilir)...
-... (review ve dokümantasyon özeti) ...
-LEAD_VERDICT: PASS
-✅ precommit-lead kontrolü geçti, commit devam ediyor.
-```
-
-### Manuel (commit atmadan önce)
-
-Commit'i beklemeden değişikliklerinizi kontrol ettirmek isterseniz, bu projede Claude Code oturumu açın. `.claude/settings.json` içindeki `"agent": "precommit-lead"` ayarı sayesinde oturum doğrudan precommit-lead ile başlar:
-
-```
-değişikliklerimi commit öncesi kontrol et
-```
-
-Manuel modda agent'lar gerektiğinde size soru sorabilir. Commit atmazlar; commit kararı her zaman sizdedir.
-
----
-
-## 4. Commit Ne Zaman Engellenir?
-
-Reviewer kararını aşağıdaki kurallara göre verir:
-
-| Karar | Koşul | Commit |
-|---|---|---|
-| ❌ COMMIT EDİLMEMELİ | Build hatası, **veya** başarısız test, **veya** herhangi bir kategoride Kritik/Yüksek bulgu, **veya** Orta ve üzeri herhangi bir güvenlik bulgusu (koda gömülü parola, API key, connection string dahil) | **Engellenir** |
-| ⚠️ DÜZELTMELERLE COMMIT EDİLEBİLİR | Yukarıdakiler yok, ama Orta seviyeli tasarım/SOLID bulgusu veya Düşük/Bilgi seviyeli güvenlik bulgusu var | Devam eder |
-| ✅ COMMIT EDİLEBİLİR | Diğer tüm durumlar | Devam eder |
-
-Bunlara ek olarak commit şu durumlarda da engellenir:
-
-- Claude CLI bulunamazsa
-- Bir alt agent hata verirse ya da sprint dokümanı yazılamazsa
-- Reviewer'ın kararı okunamazsa
-- Çıktıda `LEAD_VERDICT: PASS` satırı yoksa (ör. oturum açılmamış, ağ hatası)
-
-Sistem **güvenli tarafta kalacak** şekilde tasarlanmıştır: emin olamadığı her durumda commit'i engeller.
-
-⚠️ kararı commit'i engellemez, ama bulgular sprint dokümanının "Açık Konular ve Teknik Borç" bölümüne yazılır. Bunları sonraki sprint'lerde ele almanız beklenir.
-
----
-
-## 5. Sprint Dokümanları
-
-Her commit için `Docs/Sprint_{N}.md` dosyası oluşturulur.
-
-- **N**, atılacak commit'in sıra numarasıdır: `git rev-list --count HEAD + 1`. İlk commit `Sprint_1.md` olur.
-- Kontrol geçerse doküman **aynı commit'e otomatik eklenir**.
-- Kontrol başarısız olursa doküman yine yazılır ama commit'e eklenmez. Sorunları düzeltip tekrar commit attığınızda aynı dosya güncellenir ve "Revizyon Geçmişi" bölümüne yeni bir satır eklenir.
-
-Doküman şu bölümlerden oluşur:
-
-1. Özet
-2. Değişen Dosyalar
-3. Detaylı Değişiklik Açıklamaları
-4. Akış Diyagramları (Mermaid: flowchart, sequence, class, state, ER, yalnızca gerektiğinde)
-5. Test Sonuçları
-6. Tasarım ve SOLID Değerlendirmesi
-7. Güvenlik Değerlendirmesi
-8. Açık Konular ve Teknik Borç
-9. Revizyon Geçmişi
-
-Diff'te görülen gizli bilgiler (parola, token vb.) dokümana `***` ile maskelenerek yazılır.
-
----
-
-## 6. Bilinmesi Gerekenler
-
-### ⏱️ Commit süresi
-
-Her commit, agent'lar değişiklikleri inceleyip testleri çalıştırdığı için **birkaç dakika sürebilir**. Süre değişikliğin büyüklüğüne ve test paketine bağlıdır. Küçük ve odaklı commit'ler hem daha hızlı kontrol edilir hem de daha anlamlı dokümanlar üretir.
-
-Staged değişiklik yoksa hook hiçbir şey yapmadan çıkar.
-
-### 🚨 Kontrolü atlamak (acil durum)
-
-Acil bir durumda (ör. canlı ortam hotfix'i, Claude servisine erişilemiyor) kontrolü atlayabilirsiniz:
-
-```bash
-git commit --no-verify -m "hotfix: ..."
-```
-
-> ⚠️ `--no-verify` ile atılan commit'ler için ne review yapılır ne de sprint dokümanı oluşturulur. Yalnızca gerçekten acil durumlarda kullanın ve sonrasında değişikliği manuel olarak kontrol ettirin (bkz. [Manuel kullanım](#manuel-commit-atmadan-önce)).
-
-### 🧪 Reviewer'ın yazdığı testler commit'e otomatik eklenmez
-
-`pre-commit-reviewer`, değişiklikleriniz için eksik unit testleri yazar ve çalıştırır. Bu test dosyaları **commit'e otomatik olarak eklenmez**. Commit'e dahil edilip edilmeyeceği sizin kararınızdır.
-
-Commit sonrasında yazılan test dosyaları çalışma dizininizde staged olmayan dosyalar olarak kalır:
-
-```bash
-git status
-```
-
-Testleri inceleyin. Uygun bulduklarınızı ayrı bir commit ile ekleyin:
-
-```bash
-git add tests/...
-git commit -m "Sipariş iptali için unit testler eklendi"
-```
-
-Bu commit de aynı kontrolden geçer. Yazılan testlerin listesi ayrıca sprint dokümanının "Test Sonuçları" bölümünde yer alır.
-
-Projede henüz test projesi yoksa reviewer kendiliğinden test projesi oluşturmaz. Commit sırasında yalnızca test senaryolarını listeler; manuel modda ise hangi test framework'ünün kullanılacağını sorar.
-
-### 👥 Ekip arkadaşları için hook ayarı
-
-`core.hooksPath` ayarı her geliştiricinin kendi makinesindeki git yapılandırmasında tutulur ve **repo ile birlikte taşınmaz**. Repoyu klonlayan herkes bir kez şunu çalıştırmalıdır:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-Bu ayarı yapmayan geliştiricilerin commit'leri hiçbir kontrolden geçmez. Yeni katılan ekip üyelerine bu adımı mutlaka hatırlatın.
-
-### 🔒 Agent'ların yapamadıkları
-
-Agent'lar kural gereği şunları **asla** yapmaz:
-
-- `git add`, `git commit`, `git push`, `git reset`, `git checkout --` çalıştırmak. Commit kararı ve işlemi geliştiriciye aittir. (Tek istisna: kontrol geçtiğinde sprint dokümanını commit'e ekleyen `git add`, agent tarafından değil hook script'i tarafından yapılır.)
-- Üretim kodunu değiştirmek. Reviewer bulduğu sorunlar için düzeltme önerir ama kodu siz düzeltirsiniz.
-
----
-
-## 7. Sorun Giderme
-
-### Commit neden engellendi?
-
-Son çalışmanın tam çıktısı burada tutulur:
-
-```
-.git/precommit-lead/last-run.log
-```
-
-Bu dosya `.git` klasörünün içinde olduğu için commit'e girmez. Engellenme nedeni log'un sonundaki özette ve reviewer raporunun "Kritik / Yüksek Bulgular" bölümünde yazar.
-
-### Sık karşılaşılan durumlar
-
-| Belirti | Olası neden | Çözüm |
-|---|---|---|
-| `❌ Claude CLI bulunamadı` | CLI kurulu değil, VS Code eklentisi de yok | `npm install -g @anthropic-ai/claude-code` |
-| Her commit engelleniyor, log'da izin reddi var | `.claude/settings.json` içinde izinler eksik | [2.3. Agent izinleri](#23-agent-izinleri) bölümündeki listeyi ekleyin |
-| Log'da `LEAD_VERDICT` satırı yok | Claude'a giriş yapılmamış, ağ hatası veya kullanım limiti | `claude` komutunu çalıştırıp oturumun açık olduğunu kontrol edin |
-| Commit kontrolsüz geçiyor | `core.hooksPath` ayarlanmamış | `git config core.hooksPath .githooks` |
-| Hook çalışmıyor, `bad interpreter` hatası | Hook dosyası Windows satır sonlarıyla (CRLF) kaydedilmiş | `.gitattributes` dosyası bunu önler; dosyayı LF olarak kaydedin |
-| Yeni eklenen test aracı çalışmıyor | Komut izin listesinde yok | İlgili komutu `.claude/settings.json` içindeki `allow` listesine ekleyin |
-
----
-
-## 8. Dosya Yapısı
-
-```
-Softtech BootsCamp/
-├── .claude/
-│   ├── agents/
-│   │   ├── precommit-lead.md         # Pre-commit takımının lideri
-│   │   ├── pre-commit-reviewer.md    # SOLID, test ve güvenlik incelemesi
-│   │   └── sprint-documenter.md      # Docs/Sprint_N.md dokümanını yazar
-│   ├── hooks/
-│   │   ├── subagent-stop.js          # Reviewer bitince chat'e "Aga ..." mesajı yazar
-│   │   └── task-completed.js         # Sprint dokümanı eksikse görevin kapanmasını engeller
-│   └── settings.json                 # Varsayılan agent, izinler, agent team ayarı ve hook'lar
-├── .githooks/
-│   └── pre-commit                    # Her commit'te precommit-lead'i çalıştırır
-├── .gitattributes                    # Hook dosyalarının LF satır sonuyla kalmasını sağlar
-├── Docs/
-│   └── Sprint_N.md                   # Her commit için oluşturulan sprint dokümanları
-└── README.md
-```
-
-### Sisteme yeni bir agent eklemek
-
-1. `.claude/agents/` altına yeni agent dosyasını oluşturun.
-2. [precommit-lead.md](.claude/agents/precommit-lead.md) içinde:
-   - `tools:` satırındaki `Agent(...)` listesine yeni agent'ın adını ekleyin.
-   - "Alt agent'lar" tablosuna ve "Akış" bölümüne yeni adımı ekleyin.
-3. Agent yeni komutlar çalıştıracaksa bunları `.claude/settings.json` izin listesine ekleyin.
-
----
-
-## 9. Agent Team Modu
-
-Sistem iki farklı çoklu agent modeliyle çalışır. Hangisinin kullanılacağı, oturumun nasıl başlatıldığına bağlıdır.
-
-| | Subagent modeli | Agent team modeli |
-|---|---|---|
-| **Ne zaman?** | Commit sırasında (`git commit` → hook → `claude -p`) | Claude oturumunda elle çalıştırıldığında |
-| **İletişim** | precommit-lead reviewer'ın raporunu alır, documenter'a kendisi iletir | reviewer raporu **doğrudan** documenter'a gönderir; documenter reviewer'a soru sorabilir |
-| **Çalışma sırası** | Sıralı: önce review, sonra doküman | Paralel: reviewer incelerken documenter değişiklikleri analiz eder |
-| **Koordinasyon** | precommit-lead her şeyi yönetir | Ortak görev listesi + teammate'ler arası mesajlaşma |
-| **Maliyet** | Daha düşük | Daha yüksek (her teammate ayrı bir Claude oturumu) |
-
-Commit sırasında neden takım kullanılmıyor? Claude Code, etkileşimsiz (`-p`) modda teammate başlatmaz. Bu modda isim verilen agent'lar sıradan subagent olarak çalışır. Bu yüzden commit kontrolü her zaman subagent modeliyle yapılır.
-
-### Takımın yapısı
+Kullanıcı her zaman **ana oturumla** (Claude) konuşur; hiçbir agent varsayılan ana agent yapılmaz. Ana oturum işi kendisi yapar ya da takım gerektiren işleri **tech-lead**'e paslar. Takımı yalnızca ana oturum başlatır; bu, Claude Code'un "teammate'ler teammate başlatamaz" kısıtının sonucudur.
 
 ```mermaid
 flowchart LR
-    Lead["precommit-lead<br/>(team lead)"]
-    Rev["reviewer<br/>(pre-commit-reviewer)"]
-    Doc["documenter<br/>(sprint-documenter)"]
-    Tasks[("Ortak görev listesi")]
-
-    Lead -- görevleri oluşturur --> Tasks
-    Lead -- başlatır --> Rev
-    Lead -- başlatır --> Doc
-    Rev -- review raporu --> Doc
-    Doc -- soru --> Rev
-    Rev -- görev alır / tamamlar --> Tasks
-    Doc -- görev alır / tamamlar --> Tasks
+  U[Kullanıcı] <--> M["Ana oturum (Claude)"]
+  M -- "küçük iş" --> M
+  M -- "takım işi: /agent-team:team" --> L["lead<br/>(tech-lead)"]
+  L -- "[QUESTION] [PLAN-APPROVAL]<br/>[SPAWN-REQUEST] [STATUS] [DONE]" --> M
+  M -- "spawn (lead'in prompt'uyla)" --> B[backend] & MO[mobile] & W[web] & T[tester]
+  L <--> B & MO & W & T
+  B <-- "[CONTRACT]" --> MO & W
+  B & MO & W -- "[READY-FOR-TEST]" --> T
+  T -- "[BUG] [TESTED]" --> L
+  G{{"agent-guard<br/>(PreToolUse)"}} -. "her yazma / komut / Agent çağrısı" .- B & MO & W & T & L
 ```
 
-### Görev listesi
+- **SessionStart hook'u** ana oturuma yönlendirme kurallarını ve proje katmanının durumunu enjekte eder (plugin'deki `CLAUDE.md` bağlama yüklenmediği için).
+- **agent-guard**, plugin genelinde çalışan bir PreToolUse hook'udur. Çağıranın takım rolünü hook girdisindeki `agent_type` alanından belirler ve rolün yetkilerini, projenin `team.json` dosyasındaki alan sahipliğiyle birlikte uygular. Ana oturum ve takım dışı agent'lar kısıtlanmaz.
 
-| Görev | Sahibi | Bağımlılık |
+## 2. Katmanlar: framework, profil, proje
+
+| Katman | Nerede | Ne içerir | Kim değiştirir |
+|---|---|---|---|
+| **Framework** | `plugin/` (kurulunca plugin önbelleği) | Rol tanımları (`agents/`), ortak kurallar (`TEAM_RULES.md`), guard ve hook'lar, ön kontrol ve kurulum betikleri, generic skill'ler, Playwright MCP | Framework sahibi |
+| **Profil** | `plugin/profiles/<rol>/<ad>.md` veya `AdditionalAgentInformation/profiles/<ad>.md` | Bir yığının (ör. `backend/dotnet`, `mobile/flutter`, `web/nextjs`) kütüphaneleri, konvansiyonları, komutları, DoD ekleri, önerilen proje skill'leri | Framework sahibi / proje |
+| **Proje** | Ürün reposunda `AdditionalAgentInformation/` | `project.md` (bağlam, dil, yığın, komutlar, ortam), `rules.md`, `team.json` (roller, profiller, yollar, korumalı yollar), `agents/<rol>/` (talimat, hafıza, worklog) | Kullanıcı; agent'lar yalnızca kendi hafıza/worklog'unu |
+| **Proje uzantıları** | Ürün reposunda `.claude/skills/`, `.mcp.json`, `.claude/settings.json` | Projeye özel skill'ler, MCP sunucuları, izinler | Kullanıcı |
+
+**Öncelik:** `TEAM_RULES.md` > agent dosyası > profil > `rules.md` / `instructions.md`. Alt katmanlar üst katmanları genişletir, gevşetemez.
+
+Ajanlarda `tools:` allowlist'i yoktur (yalnızca `disallowedTools: Agent`). Bu sayede projenin `.mcp.json` dosyasındaki MCP araçları ve `.claude/skills/` altındaki skill'ler ajanlara ulaşır. Sınırlar guard tarafından zorlanır.
+
+## 3. Roller
+
+| Teammate | Agent tipi | Model | Sorumluluk |
+|---|---|---|---|
+| `lead` | `agent-team:tech-lead` | oturumla aynı | Netleştirme, mimari (ARCHITECTURE, ADR), atomik görevler, bağımlılık grafiği ve dalgalar, takip, kapsam matrisi, kapanış. **Kod yazmaz.** |
+| `backend` | `agent-team:senior-backend-developer` | opus | API, domain, DB, migration, güvenlik; API sözleşmesinin sahibi |
+| `mobile` | `agent-team:senior-mobile-developer` | opus | Mobil mimari, ekranlar, offline, güvenlik, performans, store hazırlığı |
+| `web` | `agent-team:senior-web-developer` | opus | Web mimarisi, SEO, erişilebilirlik, Core Web Vitals, tasarım sistemi, animasyon |
+| `tester` | `agent-team:senior-tester` | sonnet | Test stratejisi, E2E/API/yük/erişilebilirlik testleri, bug raporları, go/no-go. **Üretim koduna yazmaz.** |
+
+Commit öncesi hattın ajanları: `agent-team:precommit-lead`, `agent-team:pre-commit-reviewer`, `agent-team:sprint-documenter` (Bölüm 6).
+
+Kullanılmayan roller projede `team.json > roles.<rol>.enabled: false` ile kapatılır; lead kapalı rolleri başlatmaz.
+
+**Özel roller:** `team.json > roles` ile framework kodunu değiştirmeden projeye rol eklenir (ör. DevOps, güvenlik incelemesi, teknik yazar). Rolün ajanı, yetki türü (`developer`, `reviewer`, `docs`, `allowlist`) ve yolları yapılandırmadan okunur; guard, ön kontrol, kanıt kaydı ve görev kapısı bu rolleri de kapsar. Ayrıntı: [PLUGIN.md > 5.1](PLUGIN.md).
+
+## 4. Bir isteğin yaşam döngüsü
+
+1. **Yönlendirme:** Ana oturum işi kendisi yapar ya da `agent-team:team` prosedürüyle `lead`'i başlatır (önce `team-preflight.js` ön kontrolü).
+2. **Netleştirme:** lead en fazla 5 kritik soruyu `[QUESTION]` ile sorar; ana oturum soruları kullanıcıya aynen iletir.
+3. **Mimari ve plan:** VISION, ARCHITECTURE, ADR'ler (UI varsa tasarım dili ADR'si, K4). Ana hedef → story → atomik görev zinciri, kapsam matrisi, Mermaid bağımlılık grafiği, paralel dalgalar (W1..Wn), kritik yol.
+4. **Onay:** `[PLAN-APPROVAL]`; kullanıcı onaylamadan sprint başlamaz.
+5. **Takım:** lead `[SPAWN-REQUEST]` gönderir; ana oturum üyeleri **lead'in prompt'uyla, değiştirmeden** başlatır. Yalnızca o dalgada işi olan roller açılır (maliyet ve limitler).
+6. **Yürütme:** Üyeler görevleri ortak görev listesinden alır ve sözleşme üzerinden konuşur (`[CONTRACT]`, `[CONTRACT-REQUEST]`, `[READY-FOR-TEST]`, `[BUG]`, `[FIX]`). lead bağımlılıkları açar, takılanları çözer, `STATUS.md`'yi günceller ve dalga sonlarında **commit noktası** önerir.
+7. **Kapanış:** Kapsam matrisi doğrulanır, tester go/no-go verir, lead `[DONE]` gönderir. Commit kullanıcınındır.
+
+**Özerklik ve model:** `team.json > autonomy` lead'in ne zaman durup soracağını (`supervised`, `checkpoint`, `autonomous`), `models` teammate'lerin hangi modelle başlatılacağını belirler; sprint sonunda `scripts/usage-report.js` model ve rol bazında token kullanımını raporlar.
+
+**Kesinti:** Limit dolar veya oturum kapanırsa `/agent-team:resume` plan dokümanlarından, görev listesinden, worklog'lardan, kanıt kaydından ve git durumundan bir devam özeti çıkarır; lead devam modunda yalnızca yarım kalan işin sahiplerini yeniden başlattırır (PLUGIN.md > 7.6).
+
+## 5. Kalite kapıları
+
+| Kapı | Ne yapar | Nerede |
 |---|---|---|
-| `[REVIEW] Kod incelemesi` | reviewer | — |
-| `[DOC] Değişiklik analizi` | documenter | — |
-| `[DOC] Sprint dokümanını tamamla` | documenter | `[REVIEW] Kod incelemesi` bitince açılır |
+| **agent-guard** | Rol bazlı yazma/komut yetkileri: başka rolün klasörüne yazma, sözleşmeye backend dışında yazma, korumalı yollar (`.claude/`, `.githooks/`, `.github/`, `.mcp.json`, `.env`, anahtarlar, `AdditionalAgentInformation/` kullanıcı dosyaları), git geçmişini değiştiren komutlar, deploy/publish, sistem kurulumu, `sudo`, indir-çalıştır, alt agent başlatma. Bash ile yazma girişimlerini de (`>`, `tee`, `sed -i`, `cp`, `mv`, PowerShell cmdlet'leri) ayrıştırır. **Fail-closed:** node yoksa, `team.json` bozuksa veya çağıranın türü belirlenemiyorsa agent çağrısı engellenir. | `plugin/hooks/agent-guard.js`, `guard.sh` |
+| **K1 kanıt kuralı** | "Bitti/geçti" diyen her mesaj ve görev kapanışı komut + dizin + gerçek sonuç + `Kanıt: L-…` kimliği içerir. Takım rollerinin her komutu hook tarafından proje dışındaki hash zincirli bir kanıt kaydına yazılır; TaskCompleted hook'u atfedilen kimliği kayıttan doğrular (rol, agent, exit 0, tazelik, tekrar kullanım). Varsayılan `warn` modunda kanıtsız kapanış engellenmez ama ajana, lead'e ve kullanıcıya ciddi uyarı gider ve `STATUS.md`'de `⚠️ Kanıtsız` görünür; `enforce`/`strict` modunda engellenir. | `TEAM_RULES.md`, `plugin/hooks/ledger-record.js`, `plugin/hooks/task-completed.js`, `plugin/scripts/ledger.js` |
+| **Sandbox (ikinci katman)** | macOS, Linux ve WSL2'de `setup-project`, Claude Code sandbox'ını projenin `.claude/settings.json` dosyasına birleştirerek açar: Bash komutları proje dışına yazamaz, ağ erişimi profillerin ve `team.json`'un izin verdiği alan adlarıyla sınırlanır. Guard'ın çözemediği değişkenli yazmaları kapatır ve kanıt kaydını işletim sistemi düzeyinde korur. Ön kontrol bağımlılıkları (`bwrap`, `socat`) ve eksik alan adlarını denetler. | `plugin/hooks/lib/sandbox.js`, `plugin/scripts/setup-project.js`, profillerin "Ağ izinleri" bölümü |
+| **Tasarım kapısı (K8)** | `UI: evet` işaretli görev; her varyantın (mobil/masaüstü × açık/koyu) ekran görüntüsü, tasarım ADR'sine göre puanlı inceleme (`impeccable critique`) ve `Tasarım:` satırıyla kapanır. Hook dosyayı, puan eşiğini ve görüntüleri denetler; `warn` modunda `⚠️ Tasarım`, `enforce` modunda engel. | `TEAM_RULES.md` K8, `plugin/hooks/lib/design.js`, `templates/project/Docs/Design/reviews/_TEMPLATE.md` |
+| **Ön kontrol** | Takım başlamadan: ajan tanımları, node, proje katmanı ve `team.json`, profiller, gerçek hook girdisiyle guard denemeleri, agent teams ayarı, pre-commit bağlantısı. | `plugin/scripts/team-preflight.js` |
+| **Pre-commit hattı** | Commit öncesi kod incelemesi (SOLID, testler, güvenlik), eksik testlerin yazılıp çalıştırılması ve sprint dokümanı. | Bölüm 6 |
+| **Bildirimler** | lead `[QUESTION]`, `[PLAN-APPROVAL]`, `[BLOCKED]` veya `[DONE]` gönderip beklemeye geçince sohbet mesajı ve masaüstü bildirimi (`CLAUDE_TEAM_NOTIFY=0` ile kapatılır). | `plugin/hooks/subagent-stop.js` |
 
-İlk iki görev paralel yürür. Üçüncü görev, review bitene kadar kilitli kalır.
+Ortak kurallar (`TEAM_RULES.md`):
+- **K1:** kanıt kuralı
+- **K2:** sunucu ve watch komutları ön planda çalıştırılmaz
+- **K3:** animasyon kalitesi
+- **K4:** tasarım ADR'si
+- **K5:** bitti kriterlerinde bitmeyen komut olmaz
+- **K6:** şablonların ürettiği dosyalar raporlanır
+- **K7:** sözleşme sürüm bildirimi
 
-### Takım hook'ları
+## 6. Commit öncesi inceleme hattı
 
-| Olay | Script | Ne yapar? |
-|---|---|---|
-| `TaskCompleted` | [task-completed.js](.claude/hooks/task-completed.js) | `[DOC] Sprint dokümanını tamamla` görevi kapanmadan önce `Docs/Sprint_N.md` dosyasını kontrol eder. Dosya yoksa, zorunlu bölümler (Özet, Test Sonuçları, SOLID, Güvenlik) eksikse ya da review raporu işlenmemişse **exit 2** ile görevin kapanmasını engeller. Neden engellendiği documenter'a iletilir, o da eksiği tamamlar. |
-| `TeammateIdle` | [subagent-stop.js](.claude/hooks/subagent-stop.js) | reviewer işini bitirdiğinde chat'e "Aga ..." mesajını yazar. |
-| `SubagentStop` | [subagent-stop.js](.claude/hooks/subagent-stop.js) | Aynı mesajı commit sırasındaki subagent akışı için yazar. |
+`/agent-team:setup-project --githooks` ürün reposuna `.githooks/pre-commit` ve `.githooks/review-cache.js` kurar ve `core.hooksPath` değerini ayarlar. Her `git commit`'te:
 
-### Kullanım
+1. **Önbellek kontrolü:** Staged diff hunk bazında son incelemeyle karşılaştırılır. Diff değişmediyse agent çalışmaz ve önceki karar kullanılır. Bir kısmı değiştiyse yalnızca değişen hunk'lar incelenir.
+2. `claude -p --agent agent-team:precommit-lead` (HOOK MODU) sırayla `agent-team:pre-commit-reviewer` ve `agent-team:sprint-documenter`'ı çağırır.
+3. **Reviewer:** SOLID ve tasarım, eksik unit testleri yazıp çalıştırma, güvenlik (OWASP), agent hafızasında sır veya kişisel veri kontrolü.
+4. **Documenter:** `Docs/Sprint_<commit-no>.md` (özet, değişen dosyalar, Mermaid diyagramları, test sonuçları, bulgular).
+5. **Karar:** Build hatası, başarısız test, Kritik/Yüksek bulgu veya Orta+ güvenlik bulgusu varsa commit **engellenir** (`LEAD_VERDICT: FAIL`). Geçerse sprint dokümanı commit'e eklenir.
 
-1. Proje klasöründe terminal açın ve `claude` yazın. Oturum precommit-lead ile başlar.
-2. `değişikliklerimi commit öncesi kontrol et` yazın.
-3. precommit-lead görev listesini oluşturur ve iki teammate başlatır. Teammate'ler prompt kutusunun altındaki agent panelinde görünür:
-   - **↑ / ↓**: teammate seç
-   - **Enter**: teammate'in konuşmasını aç ve ona doğrudan mesaj yaz
-   - **Ctrl+T**: görev listesini aç/kapat
-   - **Esc**: seçimi kaldır
-4. Tüm görevler tamamlanınca precommit-lead özeti sunar ve teammate'leri kapatır.
+Notlar:
+- Acil durumda `git commit --no-verify` ile atlanabilir.
+- Tam yeniden inceleme için `PRECOMMIT_FORCE=1 git commit ...`; önbelleği sıfırlamak için `node .githooks/review-cache.js reset`.
+- Reviewer'ın yazdığı testler commit'e otomatik eklenmez; incelenip `git add` yapılır.
+- Log: `.git/precommit-lead/last-run.log`. Bir commit birkaç dakika sürebilir.
+- Etkileşimli kullanım: `claude --agent agent-team:precommit-lead` ile reviewer ve documenter teammate olarak çalışır.
 
-### Bilinmesi gerekenler
+## 7. Repo yapısı
 
-- **Deneysel özellik:** Agent team'ler Claude Code'da deneyseldir ve `.claude/settings.json` içindeki `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` ayarıyla açılır. Kapatmak için değeri `0` yapın; sistem subagent modeliyle çalışmaya devam eder.
-- **Terminal önerisi:** Takım modunu Claude Code CLI ile terminalde kullanın. Varsayılan "in-process" görünüm her terminalde çalışır. Her teammate'i ayrı panelde gösteren "split pane" görünümü VS Code'un terminalinde ve Windows Terminal'de desteklenmez.
-- **Maliyet:** Her teammate ayrı bir Claude oturumudur, token kullanımı tek oturuma göre belirgin şekilde artar.
-- **Oturuma devam etme:** `/resume` ve `/rewind` teammate'leri geri getirmez. Bir oturuma devam ettiyseniz precommit-lead'ten teammate'leri yeniden başlatmasını isteyin.
-- **Takılan görevler:** Teammate'ler bazen görevi "tamamlandı" olarak işaretlemeyi unutur ve bağımlı görev kilitli kalır. Bu durumda precommit-lead'e ilgili teammate'i dürtmesini söyleyin.
+```
+.
+├── .claude-plugin/marketplace.json     # marketplace kataloğu (kaynak: ./plugin)
+├── plugin/                              # ← kurulan plugin (yalnızca bu klasör kopyalanır)
+│   ├── .claude-plugin/plugin.json      # ad, sürüm
+│   ├── agents/                          # tech-lead, senior-*, precommit-lead, pre-commit-reviewer, sprint-documenter
+│   ├── hooks/                           # hooks.json, agent-guard.js, guard.sh, session-start, subagent-start,
+│   │   └── lib/                         #   ledger-record, task-completed, subagent-stop; lib: team-config (rol/team.json), ledger (kanıt kaydı), sandbox
+│   ├── scripts/                         # team-preflight.js, setup-project.js, onboard-scan.js, resume-status.js, ledger.js
+│   ├── skills/                          # team, setup-project, onboard, resume + incelenmiş generic skill'ler (README.md)
+│   ├── profiles/                        # yığın profilleri: backend/{dotnet,node,python}, mobile/{flutter,react-native-expo,native}, web/{nextjs,aspnet-mvc}
+│   ├── templates/                       # proje katmanı, Docs/Project & ADR şablonları, githooks
+│   ├── TEAM_RULES.md                    # ortak takım kuralları (K1–K8, proje katmanı, iletişim)
+│   └── .mcp.json                        # Playwright MCP (sürüm sabit)
+├── tests/hooks/                         # hook/betik birim testleri (L0; dağıtılmaz, CI ve pre-commit çalıştırır)
+├── .githooks/pre-commit                 # bu reponun kendi kontrolü: testler + plugin validate
+├── .github/workflows/agent-team.yml     # CI
+├── CLAUDE.md                            # bu repoda framework geliştirirken Claude'a talimatlar
+├── PLUGIN.md                            # bir projeye bağlama rehberi
+├── CHANGELOG.md
+└── README.md
+```
+
+## 8. Bilinen sınırlamalar ve doğrulama durumu
+
+| Konu | Durum |
+|---|---|
+| Plugin yükleme, SessionStart bağlamı, ajanların `agent-team:` adlarıyla görünmesi | ✅ Canlı doğrulandı (`claude --plugin-dir`, WSL) |
+| Guard'ın plugin **subagent**'ında çalışması (`agent_type` hook girdisinde) | ✅ Canlı doğrulandı ve her sürümde `evals/smoke` ile ölçülüyor: backend `mobile/` klasörüne yazamıyor, `backend/` klasörüne yazabiliyor; lead kaynak koda yazamıyor |
+| Kanıt kaydı, sandbox | ✅ Canlı doğrulandı (WSL2): komut kaydı ve `Kanıt: L-…` kimliği; sandbox'ta proje dışına yazma engeli, yerel ayarla kişisel kapatma |
+| Guard'ın agent team **teammate**'lerinde çalışması | ⏳ Etkileşimli oturum gerektirir (`-p` modunda teammate açılmaz). Teammate'te `agent_type` gelmezse SubagentStart kaydı, o da yoksa fail-closed engelleme devreye girer, yani sessiz bir açık oluşmaz. İlk gerçek takım koşusunda doğrulanmalı (PLUGIN.md > Doğrulama). |
+| `teammateMode: "tmux"` (split-pane) teammate'lerinde `disallowedTools` | Claude Code dokümanına göre yalnızca in-process modda kesin; guard her iki modda da `Agent` aracını engeller |
+| Agent teams | Deneysel bir Claude Code özelliği (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`); oturum devamında in-process teammate'ler geri gelmez |
+| Windows | Hook'lar Git Bash (`sh`) ile çalışır; Git Bash yoksa guard çalışamaz ve PreToolUse çağrıları engellenebilir. Önerilen ortam WSL veya macOS/Linux |
+| Lisans | Framework için henüz lisans seçilmedi (plugin dizini kataloğu LICENSE ister; kendi marketplace'iniz için zorunlu değil) |
+
+## 9. Framework'ü geliştirmek
+
+```sh
+node --test tests/hooks/*.test.js   # guard, kanıt kaydı, sandbox, görev kapısı, kurulum, ön kontrol, plugin bütünlüğü
+claude plugin validate ./plugin     # plugin
+claude plugin validate .            # marketplace
+claude --plugin-dir ./plugin        # kurmadan bir ürün reposunda deneme (o reponun kökünde)
+evals/run.sh smoke                  # ajan davranış testleri (L1; gerçek model çağrısı, ≈ $1.5)
+evals/run.sh full                   # sürüm öncesi (L2)
+```
+
+Davranış testlerinin katmanları, vakaları ve yazma kuralları: [evals/README.md](evals/README.md).
+
+Bu reponun `.githooks/pre-commit` hook'u testleri ve doğrulamayı her commit'te çalıştırır (`git config core.hooksPath .githooks`). Kurallar: [CLAUDE.md](CLAUDE.md). Sürüm değişiklikleri: [CHANGELOG.md](CHANGELOG.md).

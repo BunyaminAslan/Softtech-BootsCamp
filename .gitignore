@@ -1,0 +1,5 @@
+tests/.sandbox/
+.precommit-cache/
+node_modules/
+.claude/settings.local.json
+evals/*/results/

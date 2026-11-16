@@ -1,1 +1,11 @@
+# Hook ve betikler her platformda sh/node ile çalışır; CRLF olursa sh betikleri bozulur
+# (guard fail-closed olduğu için agent çağrıları engellenir).
+*.sh text eol=lf
 .githooks/* text eol=lf
+plugin/hooks/** text eol=lf
+plugin/scripts/** text eol=lf
+plugin/templates/githooks/* text eol=lf
+plugin/skills/**/scripts/** text eol=lf
+tests/** text eol=lf
+.github/** text eol=lf
+*.json text eol=lf
