@@ -34,7 +34,7 @@ function project({ team = V1_TEAM, status = V1_STATUS, git = false } = {}) {
   return dir;
 }
 const readTeam = (dir) => JSON.parse(fs.readFileSync(path.join(dir, LAYER, "team.json"), "utf8"));
-const env = { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1" };
+const env = { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" };
 const setup = (dir, ...args) => spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "setup-project.js"), "--project", dir, "--no-sandbox", ...args], { env, encoding: "utf8" });
 
 test("şablon ve varsayılan güncel katman sürümünde", () => {

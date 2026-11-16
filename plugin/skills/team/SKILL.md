@@ -14,7 +14,7 @@ Takımı yalnızca ana oturum başlatır; teammate'ler başka teammate başlatam
    ```sh
    node "${CLAUDE_PLUGIN_ROOT}/scripts/team-preflight.js"
    ```
-   - `FAIL` → takımı başlatma. Çıktıyı kullanıcıya göster ve düzeltmeyi öner. En sık nedenler: proje katmanı yok (`/agent-team:setup-project`), agent teams kapalı (kullanıcı ayarı), `team.json` bozuk, node yok. Guard'ı aşacak geçici bir çözüm uygulama.
+   - `FAIL` → takımı başlatma. Çıktıyı kullanıcıya göster ve düzeltmeyi öner. En sık nedenler: proje katmanı yok (`/agent-team:setup-project`), agent teams kapalı veya görev araçları opt-in değil (kullanıcı ayarı: `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`, `CLAUDE_CODE_ENABLE_TODO_TOOLS`; ekledikten sonra oturum yeniden başlatılır), `team.json` bozuk, node yok. Guard'ı aşacak geçici bir çözüm uygulama.
    - `WARN` → kullanıcıya tek satırla bildir, devam et.
 2. Settings dosyalarına `"agent"` anahtarı **ekleme**; hiçbir agent varsayılan ana agent yapılmaz.
 3. Kullanıcının isteğini, bu konuşmada alınmış kararları ve bilinen kısıtları topla.

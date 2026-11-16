@@ -207,16 +207,24 @@ const settingsFiles = [
   path.join(PROJECT, ".claude", "settings.local.json"),
 ];
 let teamsOn = process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1";
+// Görev araçları (TaskCreate/TaskUpdate/TaskList/TaskGet) Claude Code v2.1.268+ sürümünde yalnızca eski
+// modellerde (≤ Opus 4.7 / Sonnet 4.6 / Haiku 4.5) varsayılan açıktır; diğerlerinde opt-in gerekir.
+// Ortak görev listesi, TaskCompleted kapısı ve STATUS.md bu araçlara dayanır.
+const truthy = (v) => /^(1|true)$/i.test(String(v == null ? "" : v));
+let todoOn = truthy(process.env.CLAUDE_CODE_ENABLE_TODO_TOOLS);
 let teammateMode = null;
 for (const f of settingsFiles) {
   const s = readJson(f);
   if (!s) continue;
   if ("agent" in s) add("FAIL", `${f} içinde "agent" anahtarı var; kullanıcı önce ana oturumla konuşur, kaldırın`);
   if (s.env && s.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1") teamsOn = true;
+  if (s.env && truthy(s.env.CLAUDE_CODE_ENABLE_TODO_TOOLS)) todoOn = true;
   if (s.teammateMode) teammateMode = s.teammateMode;
 }
 if (teamsOn) add("PASS", "agent teams açık (CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1)");
 else add("FAIL", "agent teams kapalı: ~/.claude/settings.json > env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = \"1\" ekleyin (PLUGIN.md)");
+if (todoOn) add("PASS", "görev araçları açık (CLAUDE_CODE_ENABLE_TODO_TOOLS=1)");
+else add("FAIL", "görev araçları (TaskCreate/TaskUpdate/TaskList) güncel modellerde varsayılan kapalı; görev listesi, TaskCompleted kapısı ve STATUS.md çalışmaz. settings.json > env.CLAUDE_CODE_ENABLE_TODO_TOOLS = \"1\" ekleyin ve oturumu yeniden başlatın (PLUGIN.md §2)");
 if (teammateMode === "tmux" && spawnSync("sh", ["-c", "command -v tmux"]).status !== 0) {
   add("WARN", "teammateMode=tmux ama tmux bulunamadı (teammate'ler aynı terminalde, in-process çalışır)");
 }

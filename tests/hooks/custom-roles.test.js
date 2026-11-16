@@ -175,7 +175,7 @@ test("preflight: eksik özel ajan FAIL, proje ajanı bulunursa PASS ve guard den
   const dir = project({ roles: { devops: CUSTOM.devops, writer: CUSTOM.writer } });
   spawnSync("git", ["init", "-q"], { cwd: dir });
   const pf = () => spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "team-preflight.js"), "--project", dir], {
-    env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1" }, encoding: "utf8",
+    env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" }, encoding: "utf8",
   }).stdout;
   let out = pf();
   assert.match(out, /FAIL\s+devops \(özel, developer\): ajan dosyası bulunamadı/);

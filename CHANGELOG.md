@@ -2,6 +2,12 @@
 
 Sürümler `plugin/.claude-plugin/plugin.json` içindeki `version` ile eşleşir. Sürüm artırılmadıkça kullanıcılar güncellemeyi almaz.
 
+## 0.11.3 — 2026-11-17
+
+### Düzeltme (kritik)
+- Claude Code v2.1.268+ görev araçlarını (TaskCreate/TaskUpdate/TaskList/TaskGet) yalnızca Opus 4.7, Sonnet 4.6, Haiku 4.5 ve daha eski modellerde varsayılan verir; Claude 5 modellerinde `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` gerekir. Framework bunu denetlemiyordu: canlı testte lead ve teammate'lerde görev araçları yoktu, görev açılamadı, `TaskCompleted` kanıt kapısı ve `STATUS.md` hiç çalışmadı.
+- Ön kontrol artık değişkeni ortamda ve settings dosyalarında arar; yoksa FAIL verir ve ne ekleneceğini söyler. PLUGIN.md §2 kullanıcı ayarına eklendi; README ve `/agent-team:team` güncellendi.
+
 ## 0.11.2 — 2026-11-17
 
 ### Güvenlik düzeltmesi (kritik)

@@ -170,6 +170,7 @@ Notlar:
 | Guard'ın agent team **teammate**'lerinde çalışması | ⏳ Etkileşimli oturum gerektirir (`-p` modunda teammate açılmaz). Teammate'te `agent_type` gelmezse SubagentStart kaydı, o da yoksa fail-closed engelleme devreye girer, yani sessiz bir açık oluşmaz. İlk gerçek takım koşusunda doğrulanmalı (PLUGIN.md > Doğrulama). |
 | `teammateMode: "tmux"` (split-pane) teammate'lerinde `disallowedTools` | Claude Code dokümanına göre yalnızca in-process modda kesin; guard her iki modda da `Agent` aracını engeller |
 | Agent teams | Deneysel bir Claude Code özelliği (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`); oturum devamında in-process teammate'ler geri gelmez |
+| Görev araçları | Güncel modellerde (Claude 5 ailesi) opt-in: `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` olmadan görev listesi ve kanıt kapısı çalışmaz (PLUGIN.md §2) |
 | Windows | Hook'lar Git Bash (`sh`) ile çalışır; Git Bash yoksa guard çalışamaz ve PreToolUse çağrıları engellenebilir. Önerilen ortam WSL veya macOS/Linux |
 | Lisans | Framework için henüz lisans seçilmedi (plugin dizini kataloğu LICENSE ister; kendi marketplace'iniz için zorunlu değil) |
 

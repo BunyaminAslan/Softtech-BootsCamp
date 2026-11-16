@@ -106,7 +106,7 @@ test("--write: şablondan değiştirilmemiş dosyalar güncellenir, değiştiril
   assert.strictEqual(noLayer.status, 1);
   assert.match(noLayer.stderr, /önce setup-project/);
 
-  const setup = spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "setup-project.js"), "--project", dir, "--no-sandbox"], { encoding: "utf8", env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1" } });
+  const setup = spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "setup-project.js"), "--project", dir, "--no-sandbox"], { encoding: "utf8", env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" } });
   assert.ok([0, 2].includes(setup.status), setup.stdout + setup.stderr);
   const w = scan(dir, "--write");
   assert.strictEqual(w.status, 0, w.stderr);

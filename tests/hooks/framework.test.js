@@ -134,7 +134,7 @@ test("setup-project: katmanı kurar, tekrar çalıştırınca hiçbir şeyin üz
   fs.rmSync(proj, { recursive: true, force: true });
   fs.mkdirSync(proj, { recursive: true });
   spawnSync("git", ["init", "-q"], { cwd: proj });
-  const env = { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1" };
+  const env = { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" };
   delete env.CLAUDE_PROJECT_DIR;
   const run = (args) => spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "setup-project.js"), "--project", proj, ...args], { cwd: proj, env, encoding: "utf8" });
 
@@ -162,7 +162,7 @@ test("preflight: proje katmanı yoksa FAIL (exit 1)", { skip: !gitOk && "git yok
   fs.mkdirSync(proj, { recursive: true });
   spawnSync("git", ["init", "-q"], { cwd: proj });
   const r = spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "team-preflight.js"), "--project", proj], {
-    encoding: "utf8", env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1" },
+    encoding: "utf8", env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" },
   });
   assert.strictEqual(r.status, 1, r.stdout);
   assert.match(r.stdout, /AdditionalAgentInformation\/ yok/);
@@ -212,4 +212,20 @@ test("preflight: project.md açıklamasındaki `<doldur>` alan sayılmaz; boş s
   assert.doesNotMatch(pf(), /satır 3[,)]/, "açıklama satırı sayılmaz");
   fs.writeFileSync(pm, fs.readFileSync(pm, "utf8").split(/\r?\n/).map((l) => (/(?<!`)<doldur>(?!`)/.test(l) ? l.replace(/(?<!`)<doldur>(?!`)/g, "henüz karar verilmedi") : l)).join("\n"));
   assert.doesNotMatch(pf(), /doldurulmamış/);
+});
+
+// Claude Code v2.1.268+: görev araçları güncel modellerde opt-in (CLAUDE_CODE_ENABLE_TODO_TOOLS). Canlı testte bulundu (0.11.3).
+test("preflight: görev araçları opt-in değilse FAIL, settings env ile PASS", { skip: !gitOk && "git yok" }, () => {
+  const proj = path.join(SANDBOX, "todo-" + process.pid);
+  const home = path.join(SANDBOX, "todo-home-" + process.pid);
+  for (const d of [proj, home]) { fs.rmSync(d, { recursive: true, force: true }); fs.mkdirSync(d, { recursive: true }); }
+  spawnSync("git", ["init", "-q"], { cwd: proj });
+  const env = { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", HOME: home, USERPROFILE: home };
+  delete env.CLAUDE_CODE_ENABLE_TODO_TOOLS;
+  const pf = () => spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "team-preflight.js"), "--project", proj], { encoding: "utf8", env }).stdout;
+  assert.match(pf(), /FAIL.*görev araçları.*CLAUDE_CODE_ENABLE_TODO_TOOLS/);
+  fs.mkdirSync(path.join(proj, ".claude"), { recursive: true });
+  fs.writeFileSync(path.join(proj, ".claude", "settings.json"), JSON.stringify({ env: { CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" } }));
+  assert.match(pf(), /PASS.*görev araçları açık/);
+  for (const d of [proj, home]) fs.rmSync(d, { recursive: true, force: true });
 });

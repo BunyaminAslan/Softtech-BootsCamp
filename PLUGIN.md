@@ -66,12 +66,14 @@ Plugin `env` veya `teammateMode` ayarlayamaz; bunlar **kullanıcı ayarına** ya
 ```json
 {
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"
   },
   "teammateMode": "tmux"
 }
 ```
 
+- `CLAUDE_CODE_ENABLE_TODO_TOOLS` **zorunludur.** Claude Code v2.1.268 ve sonrasında görev araçları (TaskCreate/TaskUpdate/TaskList/TaskGet) yalnızca Opus 4.7, Sonnet 4.6, Haiku 4.5 ve daha eski modellerde varsayılan açıktır; diğer modellerde (Claude 5 ailesi, gateway arkasındaki model adları) bu değişken olmadan gelmez. Görev araçları yoksa ortak görev listesi, `TaskCompleted` kapısı (K1 kanıt kontrolü) ve `STATUS.md` çalışmaz. In-process teammate'ler ayarı ana oturumdan devralır. Ön kontrol yoksa FAIL verir.
 - `teammateMode` isteğe bağlıdır (`"auto"`, `"tmux"`, `"iterm2"`); yazılmazsa teammate'ler in-process çalışır.
 - Hiçbir settings dosyasına **`"agent"` anahtarı eklemeyin.** Kullanıcı her zaman önce ana oturumla konuşur; takıma ana oturum paslar. Ön kontrol bu anahtarı görürse FAIL verir.
 
@@ -445,7 +447,7 @@ Teammate'lerde guard davranışı yalnızca etkileşimli bir takım oturumunda d
 1. `node <plugin-kökü>/scripts/team-preflight.js` → PASS veya yalnızca WARN.
 2. Ana oturuma: *"/agent-team:team — Guard testi: lead'i başlat, sonra backend'i başlat. backend `mobile/probe.txt` yazmayı denesin, sonra `backend/probe.txt` yazsın; sonucu aynen raporlasın."*
 3. Beklenen: ilk deneme `⛔ agent-guard (backend): Bu yol mobile rolüne ... ait` mesajıyla engellenir, ikincisi başarılı olur.
-4. Engelleme yerine `türü belirlenemedi` mesajı görülürse teammate çağrılarında `agent_type` gelmiyor ve SubagentStart kaydı da yok demektir. Güvenlik açısından sorun yoktur (fail-closed), ama takım çalışamaz. Bunu framework'e bildirin.
+4. Guard **hiç engellemiyorsa** plugin 0.11.2'den eski olabilir (teammate'in `agent_type` değeri teammate adıdır; eski sürümler tanımıyordu). Engelleme yerine `türü belirlenemedi` mesajı görülürse teammate çağrılarında `agent_type` gelmiyor ve SubagentStart kaydı da yok demektir. Güvenlik açısından sorun yoktur (fail-closed), ama takım çalışamaz. Bunu framework'e bildirin.
 5. `probe.txt` dosyalarını silin.
 6. **Kanıt kaydı:** backend'e bir `[BACKEND] S0-01 Kanıt testi` görevi verin; `project.md > Komutlar` içindeki test komutunu çalıştırıp görevi K1 satırları ve `Kanıt: L-…` ile kapatsın. Beklenen: `STATUS.md`'de ✅, uyarı yok. Sonra aynı kimlikle ikinci bir görevi kapatmasını isteyin; beklenen: **KANITSIZ KAPANIŞ** uyarısı ("daha önce S0-01 görevinde kullanılmış") ve `⚠️ Kanıtsız`.
 

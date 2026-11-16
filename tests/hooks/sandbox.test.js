@@ -148,7 +148,7 @@ test("platformStatus: macOS yerleşik, Linux eksik bağımlılık ve kurulum kom
 
 // ---------------------------------------------------------------- setup-project + preflight (uçtan uca)
 function setup(proj, args, platform, home) {
-  const env = { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", AGENT_TEAM_TEST_PLATFORM: platform, HOME: home, USERPROFILE: home };
+  const env = { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_ENABLE_TODO_TOOLS: "1", AGENT_TEAM_TEST_PLATFORM: platform, HOME: home, USERPROFILE: home };
   delete env.CLAUDE_PROJECT_DIR;
   return spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "setup-project.js"), "--project", proj, ...args], { cwd: proj, env, encoding: "utf8" });
 }
@@ -184,7 +184,7 @@ test("setup-project (Linux): sandbox'ı açar, profil seçilince eksik alan adla
   fs.writeFileSync(path.join(proj, ".claude", "settings.json"), JSON.stringify(s));
 
   const pfBefore = spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "team-preflight.js"), "--project", proj], {
-    encoding: "utf8", env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", AGENT_TEAM_TEST_PLATFORM: "linux", HOME: home, USERPROFILE: home },
+    encoding: "utf8", env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_ENABLE_TODO_TOOLS: "1", AGENT_TEAM_TEST_PLATFORM: "linux", HOME: home, USERPROFILE: home },
   });
   assert.match(pfBefore.stdout, /eksik alan adı.*api\.nuget\.org.*api\.sirket\.com/);
 

@@ -58,7 +58,7 @@ test("SessionStart ve ön kontrol özerklik ve modelleri gösterir", () => {
   assert.match(ctx, /Özerklik: `autonomous`/);
   assert.match(ctx, /Teammate modelleri: tester=sonnet/);
   spawnSync("git", ["init", "-q"], { cwd: dir });
-  const pf = spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "team-preflight.js"), "--project", dir], { encoding: "utf8", env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1" } }).stdout;
+  const pf = spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "team-preflight.js"), "--project", dir], { encoding: "utf8", env: { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_ENABLE_TODO_TOOLS: "1" } }).stdout;
   assert.match(pf, /PASS\s+özerklik: autonomous; modeller: tester=sonnet; görev etiketleri: \[DOC\]=haiku/);
   assert.match(pf, /WARN\s+özerklik autonomous/);
 });
