@@ -2,6 +2,18 @@
 
 Sürümler `plugin/.claude-plugin/plugin.json` içindeki `version` ile eşleşir. Sürüm artırılmadıkça kullanıcılar güncellemeyi almaz.
 
+## 0.11.4 — 2026-11-17
+
+### Güvenlik düzeltmesi
+- Guard, Bash/PowerShell komutu içindeki dizin değişikliğini (`cd`, `pushd`, `Set-Location`, `sl`, `chdir`) izlemiyordu: `cd web && echo x > a.txt` başka rolün alanına yazabiliyordu. Göreli hedefler artık `cd` zincirine göre çözülür; alt kabuk ayırt edilemediği için başlangıç dizinine göre de denetlenir. Hedefi çözülemeyen `cd` (`cd $D`, `cd -`) sonrasındaki göreli yazmalar fail-closed engellenir.
+
+### Düzeltme
+- `TaskCompleted`: `STATUS.md` görev tablosunda satırı olmayan görev kapanınca satır ve sayaçlar kayboluyordu; artık satır eklenir ("hook ekledi"). K1 engel mesajı, kapanışla aynı çağrıda gönderilen açıklamanın kontrole ulaşmadığını açıkça söyler (canlı testte ajan bir tur kaybetti).
+- Ön kontrol: Playwright MCP sunucusunu gerçekten başlatır. Bozuk npx önbelleği (ilk indirme MCP zaman aşımında kesilince oluşur; sunucu her açılışta çöker) için klasör yolunu ve onarımı, yavaş ilk başlatma için `MCP_TIMEOUT` önerisini verir.
+- Ön kontrol: backend guard probu yasak yol olarak devre dışı rolün (`mobile/`) yolunu seçiyordu; artık etkin bir rolün (web, mobile) yolunu kullanır.
+
+Canlı test kaydı: `tests/live/2026-11-17-myblog.md`.
+
 ## 0.11.3 — 2026-11-17
 
 ### Düzeltme (kritik)

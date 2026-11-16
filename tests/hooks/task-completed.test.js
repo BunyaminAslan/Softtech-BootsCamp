@@ -109,7 +109,9 @@ function assertUnverified(p, r, why) {
   assert.match(r.json.systemMessage, why);
   const s = status(p);
   assert.match(s, /S1-01 Login \| backend \| W1 \| — \| ⚠️ Kanıtsız/);
-  assert.match(s, /done=1 total=3 blocked=1 unverified=1 -->/);
+  assert.match(s, /done=(\d) total=(\d) blocked=1 unverified=1 -->/);
+  const [, d, t] = /done=(\d) total=(\d)/.exec(s);
+  assert.strictEqual(Number(t) - Number(d), 2, "S1-02 ve S1-03 açık kalır");
 }
 
 test("warn: Kanıt atfı yoksa kapanır, uyarı ajana ve lead'e iletilir", () => {
@@ -206,4 +208,15 @@ test("strict: yalnızca project.md > Komutlar tablosundaki komutlar kanıt sayı
   assert.match(bad.stderr, /Komutlar tablosunda yok/);
   const good = run(p, { task_subject: BACKEND_TASK, task_description: desc(evidence(p, { command: "cd backend && npm test" })) });
   assert.strictEqual(good.status, 0, good.stderr);
+});
+
+// Canlı test (0.11.4): tabloda satırı olmayan görev kapanınca satır eklenir, sayaçlar güncellenir.
+test("STATUS: tabloda olmayan görev satır olarak eklenir", () => {
+  const p = project();
+  const r = run(p, { task_subject: "[BACKEND] S1-04 Yeni iş", task_description: desc(evidence(p)) });
+  assert.strictEqual(r.status, 0, r.stderr);
+  const s = status(p);
+  assert.match(s, /\| S1-04 Yeni iş \| backend \|  \|  \| ✅ Tamamlandı \| hook ekledi/);
+  assert.match(s, /done=1 total=4/);
+  assert.strictEqual((s.match(/\[BACKEND\] S1-01/g) || []).length, 1, "mevcut satırlar çoğalmaz");
 });

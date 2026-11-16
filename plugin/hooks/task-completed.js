@@ -61,7 +61,7 @@ function checkK1Lines(text) {
   const missing = K1_LINES.filter((re) => !re.test(text));
   if (missing.length) {
     block(
-      "TEAM_RULES K1: Görev kanıtsız kapatılamaz. Görev açıklamasına (TaskUpdate, ayrı bir çağrıyla) şu satırları ekle ve tekrar dene:\n" +
+      "TEAM_RULES K1: Görev kanıtsız kapatılamaz. Görev açıklamasına (TaskUpdate, ayrı bir çağrıyla) şu satırları ekle ve tekrar dene. Kapanışla aynı çağrıda gönderilen açıklama bu kontrole ulaşmaz: önce yalnızca açıklamayı güncelle, sonra ayrı bir çağrıyla durumu tamamlandı yap:\n" +
       K1_HELP + "Komut çalıştırılmadıysa 'Sonuç: çalıştırılmadı — <neden>' yaz."
     );
   }
@@ -145,7 +145,8 @@ function evaluateEvidence(root, input, config, tag, taskKey, now = Date.now()) {
 
 // STATUS.md: görev satırını işaretle, sayaçları yeniden hesapla (en iyi çaba; hata kapanışı engellemez)
 // label: "✅ Tamamlandı" | UNVERIFIED | DESIGN_PENDING. İkisi de "tamam" sayılır ama ayrı sayaçlarda tutulur.
-function updateStatus(root, config, taskId, label) {
+// Satır yoksa (lead tabloyu doldurmamış) görev tablonun sonuna eklenir; yoksa kapanış ve sayaçlar kaybolur (canlı test, 0.11.4).
+function updateStatus(root, config, taskId, label, row = {}) {
   const file = path.join(root, config.paths.projectDocs, "STATUS.md");
   if (!fs.existsSync(file)) return;
   const original = fs.readFileSync(file, "utf8");
@@ -158,6 +159,20 @@ function updateStatus(root, config, taskId, label) {
   const headers = lines[headerIdx].split("|").map((c) => c.trim());
   const statusCol = headers.indexOf("Durum");
   if (statusCol < 0) return;
+
+  let end = headerIdx + 2;
+  while (end < lines.length && lines[end].trim().startsWith("|")) end++;
+  const idRe = new RegExp("(^|[^\\w-])" + taskId + "(?![\\w-])");
+  if (!lines.slice(headerIdx + 2, end).some((l) => idRe.test(l.split("|")[1] || ""))) {
+    const cells = headers.slice(1, -1).map((h) => {
+      if (h === "Görev") return taskId + (row.title ? " " + row.title : "");
+      if (h === "Sahip") return row.owner || "";
+      if (h === "Durum") return label;
+      if (h === "Not") return "hook ekledi (tabloda satır yoktu)";
+      return "";
+    });
+    lines.splice(end, 0, "| " + cells.join(" | ") + " |");
+  }
 
   let done = 0, total = 0, blocked = 0, unverified = 0, design = 0;
   for (let i = headerIdx + 2; i < lines.length && lines[i].trim().startsWith("|"); i++) {
@@ -221,7 +236,8 @@ function handleDevTask(root, input, tag, taskKey) {
   const designOk = ds.problems.length === 0;
   const label = !verified ? UNVERIFIED : !designOk ? DESIGN_PENDING : "✅ Tamamlandı";
   try {
-    updateStatus(root, config, taskKey, label);
+    const title = subject.replace(DEV_TASK, "").trim();
+    updateStatus(root, config, taskKey, label, { title, owner: input.teammate_name || (cfgLib.rolesForTag(tag, config) || []).join("/") || tag.toLowerCase() });
   } catch (_) {}
 
   if (verified && designOk && !ev.warnings.length && !ds.warnings.length && !error) return;

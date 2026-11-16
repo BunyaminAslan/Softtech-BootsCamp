@@ -223,8 +223,30 @@ function expandVars(p, projectDir) {
 
 // Komuttaki yazma hedeflerini çıkar
 function bashWriteTargets(cmd) {
-  const targets = [];
-  for (const rawSeg of splitSegments(cmd)) {
+  return collectWriteTargets(cmd).map((x) => x.t);
+}
+
+const CD_CMDS = ["cd", "pushd", "chdir", "set-location", "sl", "push-location"];
+
+// Hedefler + o andaki dizin değişiklikleri: `cd web && echo > x` → x, ["web"] altında çözülür.
+// cds === null: dizin çözülemedi (cd $VAR, cd -); göreli hedefler fail-closed engellenir.
+function collectWriteTargets(cmd) {
+  const out = [];
+  let cds = [];
+  for (const rawSeg0 of splitSegments(cmd)) {
+    const rawSeg = rawSeg0.replace(/^[({\s]+/, "");
+    const targets = [];
+    {
+      const ct = tokenize(rawSeg);
+      if (ct.length && CD_CMDS.includes(ct[0].toLowerCase())) {
+        const dargs = ct.slice(1).filter((a) => !/^-(path|literalpath)$/i.test(a));
+        const d = dargs[0];
+        if (d === undefined) cds = cds && [os.homedir()];
+        else if (d === "-" || /[$`]/.test(expandVars(d, "")) || /^%/.test(d)) cds = null;
+        else if (cds) cds = cds.concat([d]);
+        continue;
+      }
+    }
     // Yönlendirme hedefi olmayan tırnaklı metinleri maskele ("a > b" gibi metinler hedef sayılmasın)
     const seg = rawSeg.replace(/(>\s*)?("[^"]*"|'[^']*')/g, (m, op) => (op ? m : '""'));
     const redir = /(?:^|[^\d&<>=])(?:\d?>>?|&>>?)\s*("[^"]+"|'[^']+'|[^\s;&|<>]+)/g;
@@ -270,15 +292,21 @@ function bashWriteTargets(cmd) {
       }
       default: break;
     }
+    for (const t of targets) out.push({ t, cds });
   }
-  return targets;
+  return out;
 }
 
 function checkBashWrites(cmd, ctx, cwd) {
-  for (const raw of bashWriteTargets(cmd)) {
+  for (const { t: raw, cds } of collectWriteTargets(cmd)) {
     const t = expandVars(raw, ctx.projectDir);
     if (/[$`]/.test(t)) continue; // çözülemeyen değişken / komut ikamesi
-    checkWrite(t.replace(/[*?]/g, "1"), ctx, cwd); // joker: temsili bir dosya adıyla kontrol et
+    const abs = path.isAbsolute(normalizeInputPath(t)) || /^[a-zA-Z]:/.test(t);
+    if (cds === null && !abs) block("Komuttaki dizin değişikliği (cd) çözülemediği için göreli yazma hedefi doğrulanamıyor; mutlak yol kullan veya cd'yi kaldır: " + raw);
+    const base = (cds || []).reduce((b, d) => path.resolve(b, normalizeInputPath(expandVars(d, ctx.projectDir))), cwd || ctx.projectDir);
+    // Alt kabukta ((cd x); ...) cd sonraki adımlara geçmez; ayırt edilemediği için iki taban da denetlenir
+    if (cds && cds.length) checkWrite(t.replace(/[*?]/g, "1"), ctx, cwd);
+    checkWrite(t.replace(/[*?]/g, "1"), ctx, base); // joker: temsili bir dosya adıyla kontrol et
   }
 }
 

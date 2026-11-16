@@ -108,6 +108,10 @@ if (!fs.existsSync(layer)) {
   const pw = browserLib.playwrightChromium();
   if (pw.installed) add("PASS", `Playwright Chromium kurulu (${pw.dir})`);
   else add("WARN", `Playwright Chromium yok (${pw.dir}): Playwright MCP ekran görüntüsü alamaz (tasarım kapısı K8, tester E2E, lead URL incelemesi). Kurulum: ${pw.hint}`);
+  // MCP sunucusunu gerçekten başlat: ilk npx indirmesi Claude Code'un MCP zaman aşımını (30 sn) aşınca npm kurulumu
+  // yarıda kesilir ve önbellek bozuk kalır; sunucu o andan sonra her açılışta çöker (canlı test, 0.11.4).
+  // Testlerde (node --test) ve AGENT_TEAM_PREFLIGHT_NO_MCP=1 ile atlanır.
+  if (!process.env.NODE_TEST_CONTEXT && process.env.AGENT_TEAM_PREFLIGHT_NO_MCP !== "1") mcpProbe();
   if (config.autonomy === "autonomous") add("WARN", "özerklik autonomous: lead plan onayından sonra kritik kararları da sormadan verip raporlar (commit/push/deploy yine sizin)");
   for (const f of ["project.md", "rules.md"]) {
     if (!fs.existsSync(path.join(layer, f))) add("WARN", `${cfgLib.LAYER_DIR}/${f} yok`);
@@ -162,7 +166,8 @@ if (shCheck.status !== 0) {
   const firstPath = (role, fallback) => ((config.roles[role] && config.roles[role].paths) || [])[0] || fallback;
   const probes = {
     lead: { deny: firstPath("backend", "backend/") + "probe.ts", allow: P.projectDocs + "STATUS.md" },
-    backend: { deny: firstPath("mobile", "mobile/") + "probe.ts", allow: firstPath("backend", "backend/") + "probe.ts" },
+    // yasak yol: etkin bir başka rolün yolu (devre dışı rolün yolu gerçek bir sınırı ölçmez)
+    backend: { deny: (() => { const r = ["web", "mobile"].find((x) => config.roles[x] && config.roles[x].enabled && (config.roles[x].paths || []).length) || "mobile"; return firstPath(r, r + "/"); })() + "probe.ts", allow: firstPath("backend", "backend/") + "probe.ts" },
     mobile: { deny: firstPath("backend", "backend/") + "probe.ts", allow: firstPath("mobile", "mobile/") + "probe.ts" },
     web: { deny: firstPath("backend", "backend/") + "probe.ts", allow: firstPath("web", "web/") + "probe.ts" },
     tester: { deny: firstPath("backend", "backend/") + "src/probe.ts", allow: P.testDocs + "PROBE.md" },
@@ -276,3 +281,25 @@ if (argv.includes("--json")) {
   console.log(`PREFLIGHT: ${worst}`);
 }
 process.exit(worst === "FAIL" ? 1 : 0);
+
+function mcpProbe() {
+  const mcp = readJson(path.join(PLUGIN_ROOT, ".mcp.json"));
+  const srv = mcp && mcp.mcpServers && mcp.mcpServers.playwright;
+  if (!srv) return;
+  const pkg = (srv.args || []).find((a) => a.startsWith("@playwright/mcp")) || "@playwright/mcp";
+  const init = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "agent-team-preflight", version: "1" } } }) + "\n";
+  const t0 = Date.now();
+  const r = spawnSync(srv.command, srv.args || [], { input: init, encoding: "utf8", timeout: 120000, shell: process.platform === "win32", cwd: os.tmpdir() });
+  const secs = Math.round((Date.now() - t0) / 1000);
+  const out = String(r.stdout || "") + String(r.stderr || "");
+  const prefetch = `npx -y ${pkg} --help (bir kez, önbelleğe indirir), sonra Claude Code'u yeniden başlatın`;
+  if (/"serverInfo"/.test(out)) {
+    if (secs > 25) add("WARN", `Playwright MCP başladı ama ${secs} sn sürdü; Claude Code'un MCP zaman aşımı (30 sn) aşılabilir. Bir sonraki açılış önbellekten hızlıdır; sürmezse env.MCP_TIMEOUT = "60000"`);
+    else add("PASS", `Playwright MCP başlıyor (${secs} sn)`);
+    return;
+  }
+  const broken = /ENOENT[\s\S]*?(\S*_npx[\/][0-9a-f]+)[\/]package\.json/i.exec(out);
+  if (broken) add("WARN", `Playwright MCP başlamıyor: npx önbelleği bozuk (yarıda kalmış indirme). Klasörü silin: ${broken[1]} ; sonra ${prefetch}`);
+  else if (r.error && r.error.code === "ETIMEDOUT") add("WARN", `Playwright MCP 120 sn'de yanıt vermedi (ağ/ilk indirme). Önceden indirin: ${prefetch}`);
+  else add("WARN", `Playwright MCP başlamıyor (exit ${r.status}): ${out.trim().split(/\r?\n/).slice(-2).join(" | ").slice(0, 240)}`);
+}

@@ -303,3 +303,15 @@ test("teammate adıyla gelen agent_type rol olarak tanınır (agent teams)", () 
   assert.strictEqual(cfg.roleFromTeammateName("backendish"), null, "önek '-' ile ayrılmalı");
   assert.strictEqual(cfg.roleFromTeammateName("x:backend"), null, "önekli tip ad sayılmaz");
 });
+
+// Canlı test G35 (0.11.4): komut içindeki cd sonrası göreli yazma hedefi doğru dizinde çözülür.
+test("Bash/PowerShell: cd / Set-Location sonrası göreli yazma hedefi izlenir", () => {
+  assert.strictEqual(call("backend", "Bash", { command: "cd web && echo hi > x.txt" }), BLOCK, "cd web && >");
+  assert.strictEqual(call("backend", "Bash", { command: "cd web; cd src; touch a.ts" }), BLOCK, "zincirli cd");
+  assert.strictEqual(call("backend", "PowerShell", { command: "Set-Location web; Set-Content -Path a.txt -Value x" }), BLOCK, "Set-Location");
+  assert.strictEqual(call("backend", "Bash", { command: "pushd web && rm a.ts" }), BLOCK, "pushd");
+  assert.strictEqual(call("backend", "Bash", { command: "(cd web && echo x > a.ts)" }), BLOCK, "alt kabuk");
+  assert.strictEqual(call("backend", "Bash", { command: "cd $D && echo x > a.ts" }), BLOCK, "çözülemeyen cd → fail-closed");
+  assert.strictEqual(call("backend", "Bash", { command: "cd backend && echo x > a.ts" }), ALLOW, "kendi alanı");
+  assert.strictEqual(call("backend", "Bash", { command: "cd backend && dotnet build" }), ALLOW, "yazmasız komut");
+});
