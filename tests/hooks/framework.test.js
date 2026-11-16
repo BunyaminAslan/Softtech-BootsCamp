@@ -200,3 +200,16 @@ test("evals: her vaka case.yaml + scaffold.sh içerir, plugin'i doğru yoldan ve
   }
   assert.ok(count >= 9, `vaka sayısı: ${count}`);
 });
+
+test("preflight: project.md açıklamasındaki `<doldur>` alan sayılmaz; boş satırlar listelenir", () => {
+  const os = require("node:os");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pf-doldur-"));
+  spawnSync("git", ["init", "-q"], { cwd: dir });
+  spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "setup-project.js"), "--project", dir, "--no-sandbox"], { encoding: "utf8" });
+  const pm = path.join(dir, "AdditionalAgentInformation", "project.md");
+  const pf = () => spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "team-preflight.js"), "--project", dir], { encoding: "utf8" }).stdout;
+  assert.match(pf(), /doldurulmamış alanlar var \(<doldur>; satır \d/);
+  assert.doesNotMatch(pf(), /satır 3[,)]/, "açıklama satırı sayılmaz");
+  fs.writeFileSync(pm, fs.readFileSync(pm, "utf8").split(/\r?\n/).map((l) => (/(?<!`)<doldur>(?!`)/.test(l) ? l.replace(/(?<!`)<doldur>(?!`)/g, "henüz karar verilmedi") : l)).join("\n"));
+  assert.doesNotMatch(pf(), /doldurulmamış/);
+});

@@ -2,6 +2,17 @@
 
 Sürümler `plugin/.claude-plugin/plugin.json` içindeki `version` ile eşleşir. Sürüm artırılmadıkça kullanıcılar güncellemeyi almaz.
 
+## 0.11.2 — 2026-11-17
+
+### Güvenlik düzeltmesi (kritik)
+- Guard, agent teams teammate'lerini tanımıyordu. Teammate'in hook girdisinde `agent_type` ajan tipi değil teammate **adıdır** (`backend`, `lead`, `tester-test`). Eşleşme yalnızca ajan tipine göre yapıldığından teammate "takım dışı agent" sayılıyor ve yetki kuralları hiç uygulanmıyordu (canlı testte backend, web'in klasörüne yazabildi). Artık ad bir role eşitse veya `<rol>-` ile başlıyorsa o rolün kuralları uygulanır (`team-config.roleFromTeammateName`); özel roller rol anahtarıyla eşleşir.
+- Ön kontrol guard probunu hem ajan tipiyle hem teammate adıyla çalıştırır; bu açık artık ön kontrolde FAIL olarak görünür.
+
+## 0.11.1 — 2026-11-17
+
+### Düzeltme
+- Ön kontrol: `project.md` şablonunun açıklama satırındaki `` `<doldur>` `` ifadesi boş alan sayılıyordu; tüm alanlar doldurulsa da uyarı kalkmıyordu. Ters tırnak içindeki ifade artık sayılmıyor ve uyarı boş kalan satır numaralarını gösteriyor. İlk canlı kurulum testinde (Windows) bulundu.
+
 ## 0.11.0 — 2026-11-16
 
 **Katman sürümü 5.** `setup-project --upgrade` `plan.example.json` (0.10.0'da yalnızca yeni kurulumlara geliyordu) ve retro şablonunu ekler.

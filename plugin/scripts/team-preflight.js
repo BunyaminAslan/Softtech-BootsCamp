@@ -113,7 +113,9 @@ if (!fs.existsSync(layer)) {
     if (!fs.existsSync(path.join(layer, f))) add("WARN", `${cfgLib.LAYER_DIR}/${f} yok`);
   }
   const pm = fs.existsSync(path.join(layer, "project.md")) ? fs.readFileSync(path.join(layer, "project.md"), "utf8") : "";
-  if (/<doldur>|TODO: doldur/i.test(pm)) add("WARN", "project.md içinde doldurulmamış alanlar var (<doldur>)");
+  // `<doldur>` (ters tırnak içinde) açıklama metnidir, alan değildir
+  const emptyLines = pm.split(/\r?\n/).map((l, i) => [i + 1, l]).filter(([, l]) => /(?<!`)<doldur>(?!`)|TODO: doldur/i.test(l)).map(([n]) => n);
+  if (emptyLines.length) add("WARN", `project.md içinde doldurulmamış alanlar var (<doldur>; satır ${emptyLines.join(", ")})`);
   for (const [role, rc] of Object.entries(config.roles)) {
     if (!rc.enabled) continue;
     if (!fs.existsSync(path.join(layer, "agents", role))) add("WARN", `${cfgLib.LAYER_DIR}/agents/${role}/ yok (hafıza/worklog yeri)`);
@@ -185,9 +187,11 @@ if (shCheck.status !== 0) {
     for (const [role, probe] of Object.entries(probes)) {
       if (config.roles[role] && !config.roles[role].enabled) continue;
       const type = probe.type || "agent-team:" + cfgLib.AGENT_BY_ROLE[role];
+      // Agent teams'te agent_type teammate adıdır ("backend"); ikisi de denenir
       const deny = call(type, probe.deny), allow = call(type, probe.allow);
-      if (deny === 2 && allow === 0) add("PASS", `guard ${role}: ${probe.deny} engellendi, ${probe.allow} serbest`);
-      else add("FAIL", `guard ${role}: beklenmeyen sonuç (yasak→${deny}, serbest→${allow}; beklenen 2/0)`);
+      const nDeny = call(role, probe.deny), nAllow = call(role, probe.allow);
+      if (deny === 2 && allow === 0 && nDeny === 2 && nAllow === 0) add("PASS", `guard ${role}: ${probe.deny} engellendi, ${probe.allow} serbest (ajan tipi ve teammate adıyla)`);
+      else add("FAIL", `guard ${role}: beklenmeyen sonuç (tip: yasak→${deny}, serbest→${allow}; ad: yasak→${nDeny}, serbest→${nAllow}; beklenen 2/0)`);
     }
   }
   const unknown = spawnSync("sh", [guardSh], { input: JSON.stringify({ agent_id: "x", tool_name: "Write", tool_input: { file_path: "a" } }), encoding: "utf8" }).status;

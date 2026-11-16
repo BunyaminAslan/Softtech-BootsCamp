@@ -289,3 +289,17 @@ test("proje OS temp altında olsa da rol kuralları uygulanır; proje dışında
   assert.strictEqual(call("backend", "Write", { file_path: path.join(outsideTmp, "x.log"), content: "x" }, { project: proj }), ALLOW, "proje dışı temp");
   assert.strictEqual(bash("backend", `echo x > "${path.join(proj, "mobile", "a.txt").split(path.sep).join("/")}"`, { project: proj }), BLOCK, "Bash ile de");
 });
+
+// Agent teams: teammate'in hook girdisinde agent_type ajan tipi değil teammate ADIDIR ("backend").
+// Canlı testte bu durum guard'ı atlatıyordu (0.11.2).
+test("teammate adıyla gelen agent_type rol olarak tanınır (agent teams)", () => {
+  const run = (name, fp) => runRaw({ agent_id: "tm-" + name, agent_type: name, tool_name: "Write", tool_input: { file_path: fp }, cwd: PROJECT }).status;
+  assert.strictEqual(run("backend", path.join(PROJECT, "web", "probe.txt")), BLOCK, "backend → web yolu (Windows mutlak yol)");
+  assert.strictEqual(run("backend", path.join(PROJECT, "backend", "probe.txt")), ALLOW, "backend → kendi yolu");
+  assert.strictEqual(run("tester-test", path.join(PROJECT, "backend", "x.ts")), BLOCK, "türev ad (tester-test) tester sayılır");
+  assert.strictEqual(run("lead", path.join(PROJECT, "backend", "x.ts")), BLOCK, "lead kod yazamaz");
+  assert.strictEqual(run("Explore", path.join(PROJECT, "web", "x.ts")), ALLOW, "takım dışı agent serbest");
+  const cfg = require(path.join(HOOKS, "lib", "team-config.js"));
+  assert.strictEqual(cfg.roleFromTeammateName("backendish"), null, "önek '-' ile ayrılmalı");
+  assert.strictEqual(cfg.roleFromTeammateName("x:backend"), null, "önekli tip ad sayılmaz");
+});

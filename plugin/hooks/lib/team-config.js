@@ -298,12 +298,25 @@ function addCustomRole(base, role, rc, errors) {
 /** Bir agent tipine karşılık gelen rol (yerleşik roller önce; config verilirse özel roller). */
 function roleFor(agentType, config) {
   const builtin = roleFromAgentType(agentType);
-  if (builtin || !config || !agentType) return builtin;
-  for (const [role, rc] of Object.entries(config.roles)) {
+  if (builtin || !agentType) return builtin;
+  for (const [role, rc] of Object.entries(config ? config.roles : {})) {
     if (!rc.custom) continue;
     if (rc.agent.includes(":") ? agentType === rc.agent : agentBaseName(agentType) === rc.agent) return role;
   }
-  return null;
+  return roleFromTeammateName(agentType, config);
+}
+/**
+ * Agent teams'te teammate'in hook girdisindeki agent_type, ajan tipi değil teammate ADIDIR
+ * ("backend", "lead", "tester-test"). Ad bir role eşitse veya "<rol>-" ile başlıyorsa o rol.
+ * Önekli tipler ("x:y") ad sayılmaz. Eşleşmezse null (takım dışı).
+ */
+function roleFromTeammateName(name, config) {
+  const s = String(name || "").toLowerCase();
+  if (!s || s.includes(":")) return null;
+  const roles = config ? Object.keys(config.roles) : TEAM_ROLES;
+  return roles
+    .filter((r) => s === r.toLowerCase() || s.startsWith(r.toLowerCase() + "-"))
+    .sort((a, b) => b.length - a.length)[0] || null;
 }
 /** Rolün agent tipi (spawn eşlemesi için). Yerleşikler "agent-team:<ad>", özel roller team.json'daki değer. */
 function agentForRole(role, config, pluginName = "agent-team") {
@@ -358,6 +371,7 @@ module.exports = {
   agentBaseName,
   roleFromAgentType,
   roleFor,
+  roleFromTeammateName,
   agentForRole,
   devRoles,
   rolesForTag,
