@@ -2,6 +2,11 @@
 
 Sürümler `plugin/.claude-plugin/plugin.json` içindeki `version` ile eşleşir. Sürüm artırılmadıkça kullanıcılar güncellemeyi almaz.
 
+## 0.11.6 — 2026-11-17
+
+### Güvenlik düzeltmesi
+- Guard, yorumlayıcı içinden yapılan yazmaları görmüyordu: `python -c "open('web/x','w')"`, `node -e "fs.writeFileSync(...)"` veya heredoc'la beslenen betik başka rolün alanına yazabiliyordu (native Windows'ta sandbox yok). Komutta yorumlayıcı ve yazma çağrısı varsa yazma çağrısının yol argümanları denetlenir; yol değişkenden geliyorsa betikteki tüm yol dizgileri hedef sayılır (fail-closed). TEAM_RULES: dosya Write/Edit ile yazılır.
+
 ## 0.11.5 — 2026-11-17
 
 ### Düzeltme

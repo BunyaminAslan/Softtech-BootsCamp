@@ -315,3 +315,16 @@ test("Bash/PowerShell: cd / Set-Location sonrası göreli yazma hedefi izlenir",
   assert.strictEqual(call("backend", "Bash", { command: "cd backend && echo x > a.ts" }), ALLOW, "kendi alanı");
   assert.strictEqual(call("backend", "Bash", { command: "cd backend && dotnet build" }), ALLOW, "yazmasız komut");
 });
+
+// Canlı test F10 (0.11.6): yorumlayıcı içinden yazma guard'a görünür.
+test("Bash: python/node/pwsh içinden başka rolün alanına yazma engellenir", () => {
+  const nl = String.fromCharCode(10);
+  assert.strictEqual(bash("backend", `python -c "open('web/x.ts','w').write('a')"`), BLOCK, "python -c open w");
+  assert.strictEqual(bash("backend", `node -e "require('fs').writeFileSync('web/a.js','x')"`), BLOCK, "node -e writeFileSync");
+  assert.strictEqual(bash("backend", "python - <<'EOF'" + nl + "p='web/a.ts'" + nl + "open(p,'w').write('x')" + nl + "EOF"), BLOCK, "heredoc + değişken");
+  assert.strictEqual(bash("backend", `python3 -c "from pathlib import Path; Path('web/a.ts').write_text('x')"`), BLOCK, "pathlib");
+  assert.strictEqual(bash("backend", `python -c "open('backend/a.ts','w').write('x')"`), ALLOW, "kendi alanı");
+  assert.strictEqual(bash("backend", `python -c "print(open('web/a.ts').read())"`), ALLOW, "okuma serbest");
+  assert.strictEqual(bash("backend", `node -e "console.log(1)"`), ALLOW, "yazmasız betik");
+  assert.strictEqual(bash("lead", "python - <<'EOF'" + nl + "p='AdditionalAgentInformation/agents/lead/WORKLOG.md'" + nl + "open(p,'a').write('x')" + nl + "EOF"), ALLOW, "lead kendi worklog'u (canlı vaka)");
+});

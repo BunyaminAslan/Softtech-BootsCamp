@@ -297,7 +297,39 @@ function collectWriteTargets(cmd) {
   return out;
 }
 
+// Yorumlayıcı içinden yazma (python -c, node -e, heredoc'la beslenen betik …): kabuk ayrıştırması bunları
+// göremez; native Windows'ta sandbox olmadığından rol sınırı bu yolla aşılabiliyordu (canlı test F10, 0.11.6).
+// Komutta yorumlayıcı + yazma çağrısı varsa: yazma çağrısının doğrudan yol argümanları hedeftir; yol bir
+// değişkenden geliyorsa betikteki tüm yol dizgileri hedef sayılır (fail-closed).
+const INTERP = /(^|[\s;&|(])(python3?|py|node|deno|bun|ruby|perl|php|pwsh|powershell)(\.exe)?\b/i;
+const WRITE_CALL = /\b(open\s*\(|write_text|write_bytes|writeFile(Sync)?|appendFile(Sync)?|createWriteStream|copyFile(Sync)?|rename(Sync)?|unlink(Sync)?|rmSync|rmdirSync|mkdirSync|shutil\.|os\.(remove|rename|replace|unlink|makedirs|mkdir)|\.unlink\(|\.touch\(|\.mkdir\(|File\.(Write|Append|Copy|Move|Delete)|Set-Content|Add-Content|Out-File|New-Item|Remove-Item|Copy-Item|Move-Item)/;
+function interpreterWriteTargets(cmd) {
+  if (!INTERP.test(cmd) || !WRITE_CALL.test(cmd)) return [];
+  const direct = [];
+  const re = /\b(?:open|writeFileSync|writeFile|appendFileSync|appendFile|createWriteStream|Path)\s*\(\s*(?:r|f)?(["'])([^"'\n]+)\1\s*(,\s*(?:r|f)?["']([^"'\n]*)["'])?/g;
+  let m, viaVar = false;
+  while ((m = re.exec(cmd))) {
+    const mode = m[4];
+    if (/^open$/.test(cmd.slice(m.index, m.index + 4)) && mode !== undefined && !/[wax+]/.test(mode)) continue; // okuma
+    if (/^open$/.test(cmd.slice(m.index, m.index + 4)) && mode === undefined) continue; // open('x') = okuma
+    direct.push(m[2]);
+  }
+  if (/\b(?:open|writeFileSync|writeFile|appendFileSync|appendFile|write_text|write_bytes)\s*\(\s*[A-Za-z_$][\w$.]*\s*[,)]/.test(cmd) || /\.(write_text|write_bytes|touch|unlink|mkdir)\(/.test(cmd)) viaVar = true;
+  if (!viaVar) return direct;
+  const lits = [];
+  const lre = /(?:r|f)?(["'])([^"'\n]{2,})\1/g;
+  while ((m = lre.exec(cmd))) {
+    const s = m[2];
+    if (/[\\/]/.test(s) && !/\s{2,}|^https?:|[<>|*?]/.test(s) && !/^-/.test(s)) lits.push(s);
+  }
+  return [...new Set([...direct, ...lits])];
+}
+
 function checkBashWrites(cmd, ctx, cwd) {
+  for (const raw of interpreterWriteTargets(cmd)) {
+    if (/[$`{}]/.test(raw)) continue;
+    checkWrite(raw, ctx, cwd);
+  }
   for (const { t: raw, cds } of collectWriteTargets(cmd)) {
     const t = expandVars(raw, ctx.projectDir);
     if (/[$`]/.test(t)) continue; // çözülemeyen değişken / komut ikamesi
@@ -379,4 +411,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { bashWriteTargets, splitSegments };
+module.exports = { bashWriteTargets, splitSegments, interpreterWriteTargets };
