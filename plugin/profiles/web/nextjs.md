@@ -30,9 +30,9 @@
 ## Komutlar (project.md > Komutlar'a örnek)
 | Amaç | Komut |
 |---|---|
-| Kurulum | `npm ci` |
+| Kurulum | `npm ci --no-audit --no-fund --loglevel=error` |
 | Lint / tip | `npm run lint` · `npx tsc --noEmit` |
-| Test | `npx vitest run` |
+| Test | `npx vitest run --reporter=dot` (test özeti korunur) |
 | Build (kanıt) | `npx next build` |
 | Bundle analizi | `ANALYZE=true npx next build` (`@next/bundle-analyzer` kuruluysa) |
 | Görsel kontrol | `timeout 120 npx next start -p 3000 &` → kontrol → kapat (K2) |

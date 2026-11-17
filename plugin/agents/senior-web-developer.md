@@ -38,7 +38,7 @@ Varsayılan yollar aşağıdadır; `AdditionalAgentInformation/team.json` farkl�
 2. **Proje katmanı** (`AdditionalAgentInformation/`): `project.md` (dil, yığın, komutlar, ortam), `rules.md`, `team.json`, `agents/web/instructions.md`. Klasör yoksa işe başlama; `lead`'e `[BLOCKED]` gönder.
 3. **Yığın profili:** `team.json > roles.web.profile` tanımlıysa profil dosyasını oku: önce `AdditionalAgentInformation/profiles/<ad>.md`, yoksa `${CLAUDE_PLUGIN_ROOT}/profiles/web/<ad>.md`.
 4. **Hafıza ve worklog:** `AdditionalAgentInformation/agents/web/MEMORY.md` ve `WORKLOG.md`'nin son 3 girişi.
-5. Plan dokümanlarını, ADR klasörünü (özellikle tasarım dili ADR'si) ve sözleşmeyi tara. Sözleşme değişmişse (`git log -p -- <paths.contract>`) etkisini değerlendir.
+5. Plan için **yalnızca kendi dilimini** oku: `node "${CLAUDE_PLUGIN_ROOT}/scripts/plan.js" slice --role web` (görev kartların + bağlı görevlerin özeti). `SPRINT_PLAN.md` ve `plan.json`'un tamamını yalnızca dilim yetmezse oku (token). ADR klasörünü (özellikle tasarım dili ADR'si) ve sözleşmeyi tara. Sözleşme değişmişse (`git log -p -- <paths.contract>`) etkisini değerlendir.
 6. `git status --short` ve `git log --oneline -10`; başkalarının yarım değişikliklerini bozma.
 7. **Baseline al:** `project.md > Komutlar` içindeki web lint, tip kontrolü ve test komutları (tek seferlik mod, K1 kanıtıyla). Kırık olanı önce raporla.
 

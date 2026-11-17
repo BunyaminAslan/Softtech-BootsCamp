@@ -43,10 +43,10 @@
 ## Komutlar (project.md > Komutlar'a örnek)
 | Amaç | Komut |
 |---|---|
-| Restore | `dotnet restore` |
-| Build | `dotnet build -warnaserror` |
-| Test | `dotnet test` |
-| Kapsam | `dotnet test --collect:"XPlat Code Coverage"` |
+| Restore | `dotnet restore -v q` |
+| Build | `dotnet build -warnaserror -nologo -v q` |
+| Test | `dotnet test --nologo -v q` (test özeti korunur) |
+| Kapsam | `dotnet test --nologo -v q --collect:"XPlat Code Coverage"` |
 | Format | `dotnet format --verify-no-changes` |
 | Güvenlik açığı taraması | `dotnet list package --vulnerable --include-transitive` |
 | Migration | `dotnet ef migrations add <Ad>` · `dotnet ef migrations list` · `dotnet ef migrations script` · `dotnet ef database update` (yalnızca local DB) |

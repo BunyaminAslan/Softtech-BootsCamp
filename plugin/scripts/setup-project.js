@@ -3,7 +3,7 @@
 //
 // Kullanım (proje kökünde veya --project ile):
 //   node "<plugin-kökü>/scripts/setup-project.js" [--project <dizin>] [--name <ad>]
-//        [--githooks] [--update-githooks] [--init-git] [--no-sandbox] [--sandbox] [--upgrade] [--dry-run]
+//        [--roles backend,web,tester] [--githooks] [--update-githooks] [--init-git] [--no-sandbox] [--sandbox] [--upgrade] [--dry-run]
 //
 // Yaptıkları (var olan dosyanın ÜZERİNE YAZMAZ; atlananları raporlar):
 //   1. AdditionalAgentInformation/ (project.md, rules.md, team.json, agents/<rol>/…) şablonlarını kopyalar
@@ -78,17 +78,51 @@ function writeIfMissing(rel, content, mode) {
 }
 const render = (s) => s.replace(/\{\{PROJECT\}\}/g, NAME).replace(/\{\{DATE\}\}/g, TODAY);
 
+// ---------------------------------------------------------------- roller (--roles)
+// Yalnızca seçilen rollerin agents/<rol>/ klasörü kopyalanır; seçilmeyenler team.json'a "enabled": false yazılır.
+// --roles yoksa: team.json varsa onun etkin rolleri (yeniden çalıştırma, sonradan açılan rol), yoksa hepsi.
+const teamJsonPath = path.join(target, cfgLib.LAYER_DIR, cfgLib.CONFIG_FILE);
+const OPTIONAL_ROLES = cfgLib.TEAM_ROLES.filter((r) => r !== "lead");
+let selectedRoles;
+if (opt("--roles") !== null) {
+  const list = String(opt("--roles") || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const bad = list.filter((r) => !cfgLib.TEAM_ROLES.includes(r));
+  if (bad.length) fail(`--roles: bilinmeyen rol: ${bad.join(", ")} (geçerli: ${OPTIONAL_ROLES.join(", ")}; lead her zaman dahildir)`);
+  selectedRoles = new Set(["lead", ...list]);
+} else if (fs.existsSync(teamJsonPath)) {
+  const { config: cur, error: curErr } = cfgLib.loadConfig(target);
+  selectedRoles = curErr ? new Set(cfgLib.TEAM_ROLES) : new Set(Object.keys(cur.roles).filter((r) => cur.roles[r].enabled));
+} else {
+  selectedRoles = new Set(cfgLib.TEAM_ROLES);
+}
+const AGENTS_PREFIX = path.posix.join(cfgLib.LAYER_DIR, "agents") + "/";
+function roleFolderSkipped(rel) {
+  if (!rel.startsWith(AGENTS_PREFIX)) return false;
+  const role = rel.slice(AGENTS_PREFIX.length).split("/")[0];
+  return cfgLib.TEAM_ROLES.includes(role) && !selectedRoles.has(role);
+}
+
 function copyTree(srcDir, destRel) {
   for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
     const src = path.join(srcDir, entry.name);
     const rel = path.posix.join(destRel, entry.name);
+    if (roleFolderSkipped(rel + (entry.isDirectory() ? "/" : ""))) continue;
     if (entry.isDirectory()) copyTree(src, rel);
+    else if (rel === path.posix.join(cfgLib.LAYER_DIR, cfgLib.CONFIG_FILE)) writeIfMissing(rel, render(teamJsonFor(fs.readFileSync(src, "utf8"))));
     else writeIfMissing(rel, render(fs.readFileSync(src, "utf8")));
   }
 }
+// Şablon team.json: seçilmeyen yerleşik roller "enabled": false (biçim korunur)
+function teamJsonFor(text) {
+  return text.replace(/("([a-z]+)": \{ "enabled": )true/g, (m, head, role) => (OPTIONAL_ROLES.includes(role) && !selectedRoles.has(role) ? head + "false" : m));
+}
 
 // ---------------------------------------------------------------- 1. proje katmanı
+const teamJsonExisted = fs.existsSync(teamJsonPath);
 copyTree(path.join(TPL, "project", cfgLib.LAYER_DIR), cfgLib.LAYER_DIR);
+if (opt("--roles") !== null && teamJsonExisted) notes.push(`ℹ️ ${cfgLib.LAYER_DIR}/team.json zaten vardı; --roles yalnızca klasörleri etkiledi. Rolleri açıp kapatmak için team.json > roles.<rol>.enabled değerini düzenleyin.`);
+const off = OPTIONAL_ROLES.filter((r) => !selectedRoles.has(r));
+if (off.length) notes.push(`Kapalı roller (klasörleri oluşturulmadı): ${off.join(", ")}. Sonradan açmak için team.json'da "enabled": true yapıp kurulumu yeniden çalıştırın.`);
 if (!DRY && created.some((c) => c.endsWith("project.md"))) {
   const pm = path.join(target, cfgLib.LAYER_DIR, "project.md");
   fs.writeFileSync(pm, fs.readFileSync(pm, "utf8").replace("- **Proje adı:** <doldur>", `- **Proje adı:** ${NAME}`));

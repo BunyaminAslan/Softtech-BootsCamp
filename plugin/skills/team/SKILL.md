@@ -64,6 +64,8 @@ Netleştirme sorularını [QUESTION], plan onayını [PLAN-APPROVAL], üye istek
 | `web` | `agent-team:senior-web-developer` |
 | `tester` | `agent-team:senior-tester` |
 
+**Ana oturumun maliyeti:** Takım çalışırken ana oturum karar vermez, mesaj taşır; buna rağmen bağlamı her mesajla büyüdüğü için en pahalı kalemlerden biridir. Takımı başlatmadan önce kullanıcıya bir kez öner: ana oturum modeli Sonnet (`/model sonnet`) yeterlidir. Mesajları aktarırken kendi yorumunu ekleme; lead'in mesajı uzunsa kullanıcıya özetini ve dosya yolunu ver, dosyayı okuyup bağlama kopyalama (kullanıcı isterse oku).
+
 **Model:** `[SPAWN-REQUEST]`'te bir üye için `model:` satırı varsa (`opus`, `sonnet`, `haiku` …) üyeyi o modelle başlat (Agent aracının `model` parametresi). Satır yoksa model verme; ajan dosyasındaki model geçerlidir. Ad bir rolün türevi olabilir (ör. `tester-test`: aynı agent tipiyle, farklı modelle açılan ikinci tester); agent tipi eşlemedeki gibidir.
 
 **Özerklik (`team.json > autonomy`):** `autonomous` ve `checkpoint` düzeylerinde lead'in `[STATUS]` mesajları bilgilendirmedir; kullanıcıya ilet ama cevap bekleme. `supervised`'da lead dalga sonlarında da `[QUESTION]` ile onay ister. Commit, push ve deploy her düzeyde kullanıcınındır.

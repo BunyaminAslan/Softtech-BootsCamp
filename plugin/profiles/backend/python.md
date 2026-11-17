@@ -35,7 +35,7 @@ Geliştirme sunucusu (reload modunda) kanıt değildir (K2/K5).
 
 | Amaç | Komut |
 |---|---|
-| Kurulum | `uv sync --frozen` |
+| Kurulum | `uv sync --frozen -q` |
 | Lint | `uv run ruff check .` |
 | Format kontrolü | `uv run ruff format --check .` |
 | Tip kontrolü | `uv run mypy .` |

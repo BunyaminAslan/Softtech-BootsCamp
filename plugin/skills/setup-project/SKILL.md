@@ -12,14 +12,14 @@ Yalnızca **ana oturum** çalıştırır (takım üyeleri proje katmanının kul
 1. **Hedefi doğrula:** Mevcut çalışma dizininin ürün reposu olduğundan emin ol (`git rev-parse --show-toplevel`). Repo değilse kullanıcıya sor: `git init` yapılsın mı (`--init-git`)?
 2. **Kullanıcıya sor (tek mesajda):**
    - Commit öncesi agent kontrolü (pre-commit hook) kurulsun mu? → evetse `--githooks`
-   - Hangi roller kullanılacak, hangi yığın profilleri? (Bilinmiyorsa varsayılanla devam et; sonra `team.json`'dan değiştirilir.)
+   - Hangi roller kullanılacak (backend, web, mobile, tester; lead her zaman vardır), hangi yığın profilleri? Cevabı `--roles <virgüllü liste>` olarak ver (ör. backend + web + tester → `--roles backend,web,tester`): yalnızca seçilen rollerin `agents/<rol>/` klasörleri kurulur, seçilmeyenler `team.json`'a kapalı yazılır. Kullanıcı rol belirtmezse `--roles` verme (hepsi kurulur).
    - Sandbox (PLUGIN.md > 1.1): macOS, Linux ve WSL2'de varsayılan olarak açılır; proje `.claude/settings.json` dosyasına sandbox bloğu ve profillerin ağ izinleri **birleştirilir** (var olan ayar ezilmez). İstemiyorsa → `--no-sandbox`. Sandbox kullanıcının kendi ana oturumunu da kapsar; bunu söyle.
 3. **Önce kuru çalıştır,** ne yazılacağını göster:
    ```sh
-   node "${CLAUDE_PLUGIN_ROOT}/scripts/setup-project.js" --dry-run [--githooks] [--no-sandbox]
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/setup-project.js" --dry-run [--roles <liste>] [--githooks] [--no-sandbox]
    ```
 4. **Onaydan sonra gerçek çalıştır** (aynı argümanlarla, `--dry-run` olmadan). Betik var olan hiçbir dosyanın üzerine yazmaz.
-5. **team.json'u kullanıcının cevaplarına göre düzenle:** kullanılmayan rol → `"enabled": false`; profil → `"profile": "<ad>"` (mevcut profiller: `${CLAUDE_PLUGIN_ROOT}/profiles/README.md`); klasörler farklıysa `paths`; projeye özel ağ izinleri → `sandbox.allowedDomains`. Sonra kurulumu **aynı argümanlarla yeniden çalıştır**: var olan dosyalara dokunmaz, yalnızca seçilen profillerin eksik ağ izinlerini ekler ve ön kontrolü çalıştırır:
+5. **team.json'u kullanıcının cevaplarına göre düzenle:** roller `--roles` ile zaten açık/kapalı yazılmıştır (sonradan rol açmak: `"enabled": true` + kurulumu yeniden çalıştır, eksik klasör eklenir); profil → `"profile": "<ad>"` (mevcut profiller: `${CLAUDE_PLUGIN_ROOT}/profiles/README.md`); klasörler farklıysa `paths`; projeye özel ağ izinleri → `sandbox.allowedDomains`. Sonra kurulumu **aynı argümanlarla yeniden çalıştır**: var olan dosyalara dokunmaz, yalnızca seçilen profillerin eksik ağ izinlerini ekler ve ön kontrolü çalıştırır:
    ```sh
    node "${CLAUDE_PLUGIN_ROOT}/scripts/setup-project.js" [--githooks] [--no-sandbox]
    ```

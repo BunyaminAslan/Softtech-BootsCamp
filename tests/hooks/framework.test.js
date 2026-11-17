@@ -229,3 +229,31 @@ test("preflight: görev araçları opt-in değilse FAIL, settings env ile PASS",
   assert.match(pf(), /PASS.*görev araçları açık/);
   for (const d of [proj, home]) fs.rmSync(d, { recursive: true, force: true });
 });
+
+// 0.12.0: --roles yalnızca seçilen rollerin klasörlerini kurar; sonradan açılan rol yeniden çalıştırınca eklenir.
+test("setup-project --roles: seçilmeyen rolün klasörü yok, team.json'da kapalı; sonradan açılınca eklenir", { skip: !gitOk && "git yok" }, () => {
+  const proj = path.join(SANDBOX, "roles-" + process.pid);
+  fs.rmSync(proj, { recursive: true, force: true });
+  fs.mkdirSync(proj, { recursive: true });
+  spawnSync("git", ["init", "-q"], { cwd: proj });
+  const env = { ...process.env, CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_ENABLE_TODO_TOOLS: "1", AGENT_TEAM_PREFLIGHT_NO_MCP: "1" };
+  delete env.CLAUDE_PROJECT_DIR;
+  const run = (args) => spawnSync(process.execPath, [path.join(PLUGIN, "scripts", "setup-project.js"), "--project", proj, "--no-sandbox", ...args], { cwd: proj, env, encoding: "utf8" });
+  const L = (p) => path.join(proj, "AdditionalAgentInformation", p);
+  assert.strictEqual(run(["--roles", "backend,frontend"]).status, 1, "bilinmeyen rol reddedilir");
+  const dry = run(["--roles", "backend,web", "--dry-run"]);
+  assert.doesNotMatch(dry.stdout, /agents\/mobile\//, "kuru çalıştırma kapalı rolü listelemez");
+  const r = run(["--roles", "backend,web"]);
+  assert.strictEqual(r.status, 0, r.stdout + r.stderr);
+  for (const role of ["lead", "backend", "web"]) assert.ok(fs.existsSync(L(`agents/${role}/MEMORY.md`)), role);
+  for (const role of ["mobile", "tester"]) assert.ok(!fs.existsSync(L(`agents/${role}`)), role + " klasörü oluşmamalı");
+  const team = JSON.parse(fs.readFileSync(L("team.json"), "utf8"));
+  assert.deepStrictEqual(Object.fromEntries(Object.entries(team.roles).map(([k, v]) => [k, v.enabled])), { lead: true, backend: true, mobile: false, web: true, tester: false });
+  assert.match(r.stdout, /Kapalı roller .*mobile, tester/);
+  // tester sonradan açılır → yeniden çalıştırma klasörünü ekler, diğerlerine dokunmaz
+  fs.writeFileSync(L("team.json"), fs.readFileSync(L("team.json"), "utf8").replace(/("tester": \{ "enabled": )false/, "$1true"));
+  assert.strictEqual(run([]).status, 0);
+  assert.ok(fs.existsSync(L("agents/tester/MEMORY.md")), "sonradan açılan rol eklendi");
+  assert.ok(!fs.existsSync(L("agents/mobile")), "kapalı rol hâlâ yok");
+  fs.rmSync(proj, { recursive: true, force: true });
+});

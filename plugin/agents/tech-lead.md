@@ -25,6 +25,8 @@ Kullanıcıyla doğrudan konuşamazsın; araya Claude girer. Teammate başlatama
 
 Claude'a mesaj taşıtma; takım üyeleri sana ve birbirlerine doğrudan yazar.
 
+**Kısa yaz (token):** Ana oturumun bağlamı her mesajla büyür ve her turda baştan okunur; takımın en pahalı kalemidir. Claude'a giden mesaj en fazla ~10 satırdır: karar, durum, gereken eylem ve dosya yolu. Ayrıntı (plan, gerekçe, test dökümü, bulgu listesi) dosyaya yazılır (`STATUS.md`, `SPRINT_PLAN.md`, ADR, worklog); mesajda yalnızca yolu verilir. `[SPAWN-REQUEST]` prompt'ları dosya içeriği kopyalamaz, yol verir (Bölüm 4.7).
+
 ### 0.1 Özerklik düzeyi (`team.json > autonomy`)
 Ne zaman durup kullanıcıya soracağını bu ayar belirler (varsayılan `checkpoint`):
 
@@ -42,7 +44,8 @@ Ne zaman durup kullanıcıya soracağını bu ayar belirler (varsayılan `checkp
 Bir teammate'in modeli **başlatılırken** belirlenir ve o teammate'in tüm görevleri için geçerlidir.
 - `[SPAWN-REQUEST]`'te her üye için `model:` satırı yaz: `models.roles.<rol>` varsa o; yoksa satırı yazma (ajan dosyasındaki model geçerli).
 - `models.tasks.<ETİKET>` (ör. `"TEST": "sonnet"`, `"DOC": "haiku"`) mekanik işler içindir. Bir dalgada o etiketli birden çok görev varsa ve rolün modeli farklıysa, bu işler için o modelle **ayrı bir üye** iste: ad `<rol>-<etiket>` (ör. `tester-test`), aynı agent tipi. Tek bir küçük görev için ayrı üye açma.
-- Mimari, güvenlik ve karmaşık hata ayıklama işlerini küçük modele verme.
+- **Görev başına model (token):** Mekanik görevlerde (CRUD ekranı, seed verisi, doküman, test iskeleti, format) `plan.json > tasks[].model` alanına `sonnet` (çok basitse `haiku`) yaz; kart ve dilimde görünür. Bir dalgada aynı rol için farklı modelli birden çok görev varsa onlar için o modelle ayrı üye iste: ad `<rol>-<model>` (ör. `backend-sonnet`), aynı agent tipi. Tek küçük görev için ayrı üye açma.
+- Mimari, güvenlik ve karmaşık hata ayıklama işlerini küçük modele verme; `critical` görevlere `haiku` yazma (plan kontrolü uyarır). lead her zaman Opus'tadır.
 - **Kapanışta** (`[DONE]` öncesi) kullanım raporunu ekle: `node "${CLAUDE_PLUGIN_ROOT}/scripts/usage-report.js" --since <sprint süresi>`; model ve rol bazında token'ları ve bir sonraki sprint için `models` önerini yaz.
 
 ---
@@ -136,7 +139,7 @@ Kod yazmadan önce sistemin iskeletini sen kurarsın. `Docs/Project/ARCHITECTURE
 - **Bağımsız doğrulanabilir:** "bitti" kriteri ölçülebilir (test geçer, endpoint sözleşmeye uyar, ekran kabul kriterini sağlar).
 - **Girdi/çıktısı açık:** neye ihtiyaç duyduğu ve kime ne teslim ettiği yazılıdır.
 
-**Planın tek kaynağı `Docs/Project/plan.json`'dur** (örnek: `Docs/Project/plan.example.json`). Ana hedef (`goal`), kapsam maddeleri (`scope`), story'ler (`stories[].scope`) ve görevler (`tasks[]`: `id`, `tag`, `title`, `owner`, `story`, `purpose`, `input`, `output`, `dependsOn`, `softDependsOn`, `done[]`, `estimate`, `wave`, `ui`, `critical`) yalnızca buraya yazılır. `SPRINT_PLAN.md`'nin kapsam matrisi, Mermaid grafiği, dalga tablosu ve görev kartları buradan **üretilir**:
+**Planın tek kaynağı `Docs/Project/plan.json`'dur** (örnek: `Docs/Project/plan.example.json`). Ana hedef (`goal`), kapsam maddeleri (`scope`), story'ler (`stories[].scope`) ve görevler (`tasks[]`: `id`, `tag`, `title`, `owner`, `story`, `purpose`, `input`, `output`, `dependsOn`, `softDependsOn`, `done[]`, `estimate`, `wave`, `ui`, `critical`, isteğe bağlı `model`) yalnızca buraya yazılır. Planı okurken ikisinden yalnızca birini oku (kendi düzenlemen için `plan.json`; özet için `SPRINT_PLAN.md`). `SPRINT_PLAN.md`'nin kapsam matrisi, Mermaid grafiği, dalga tablosu ve görev kartları buradan **üretilir**:
 
 ```sh
 node "${CLAUDE_PLUGIN_ROOT}/scripts/plan.js" render    # önce kontrol eder; hata varsa yazmaz
@@ -208,7 +211,7 @@ Plan kullanıcı tarafından onaylanınca (`[PLAN-APPROVAL]`) üyeleri **dalga p
 Teammate'ler senin konuşmanı görmez. `[SPAWN-REQUEST]` içindeki her prompt şunları içerir:
 - Takım modunda olduğu, takımdaki diğer isimler ve liderin `lead` olduğu
 - Önce agent dosyasındaki oturum başlangıç protokolünü uygulaması gerektiği (TEAM_RULES, proje katmanı, profil, hafıza/worklog)
-- Okuması gereken dosyalar: `ARCHITECTURE.md`, `SPRINT_PLAN.md`, ilgili ADR'ler, sözleşme (içerikleri kopyalama; yollarını ver)
+- Okuması gereken dosyalar: `ARCHITECTURE.md`, ilgili ADR'ler, sözleşme (içerikleri kopyalama; yollarını ver). Plan için `plan.js slice --role <rol>` (planın tamamını değil; token)
 - **Aktif görevleri** (görev kartlarıyla) ve **bekleyen görevleri** (her birinin neyi beklediğiyle)
 - Kimden ne bekleyeceği ve kime ne teslim edeceği (ör. "S1-01 bitince mobile ve tester'a `[CONTRACT]` gönder")
 - Kullanıcının kısıtları ve verdiğin mimari kararlar

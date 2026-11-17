@@ -15,10 +15,10 @@
 ## Komutlar (project.md > Komutlar'a örnek)
 | Amaç | Komut |
 |---|---|
-| Android lint/test | `./gradlew lint test` |
-| Android build (kanıt) | `./gradlew assembleDebug` |
+| Android lint/test | `./gradlew lint test -q` |
+| Android build (kanıt) | `./gradlew assembleDebug -q` |
 | Android cihaz testleri | `./gradlew connectedDebugAndroidTest` (local emülatör) |
-| iOS test (macOS) | `xcodebuild test -scheme <scheme> -destination 'platform=iOS Simulator,name=<cihaz>'` |
+| iOS test (macOS) | `xcodebuild test -quiet -scheme <scheme> -destination 'platform=iOS Simulator,name=<cihaz>'` |
 
 ## Test
 Unit: JUnit + MockK / XCTest. UI: Compose UI Test / XCUITest. Snapshot: Paparazzi / swift-snapshot-testing. E2E (Maestro / Appium) tester'ındır.

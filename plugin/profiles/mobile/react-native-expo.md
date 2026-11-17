@@ -15,9 +15,9 @@ TypeScript strict, Expo (prebuild / dev client), Expo Router, TanStack Query, Zu
 ## Komutlar (project.md > Komutlar'a örnek)
 | Amaç | Komut |
 |---|---|
-| Kurulum | `npm ci` (uzun sürer: arka planda, K2) |
+| Kurulum | `npm ci --no-audit --no-fund --loglevel=error` (uzun sürer: arka planda, K2) |
 | Lint / tip | `npm run lint` · `npx tsc --noEmit` |
-| Test | `npx jest --ci --watchAll=false` |
+| Test | `npx jest --ci --watchAll=false --silent` (test özeti korunur) |
 | Sağlık | `npx expo-doctor` |
 | Derlenebilirlik kanıtı | `npx expo export --platform android --output-dir <geçici-dizin>` (web hedefi varsa `--platform web`) |
 | Bağımlılık hizalama | `npx expo install --check` |

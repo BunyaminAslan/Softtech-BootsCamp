@@ -39,7 +39,7 @@ Bu dosya **generic** rol tanımıdır; belirli bir projeye veya yığına ait bi
 2. **Proje katmanı** (`AdditionalAgentInformation/`): `project.md` (dil, yığın, komutlar, ortam), `rules.md`, `team.json` (etkin roller ve yollar), `agents/tester/instructions.md`. Klasör yoksa işe başlama; `lead`'e `[BLOCKED]` gönder.
 3. **Profil:** `team.json > roles.tester.profile` tanımlıysa önce `AdditionalAgentInformation/profiles/<ad>.md`, yoksa `${CLAUDE_PLUGIN_ROOT}/profiles/tester/<ad>.md`. Ayrıca geliştirici rollerinin profillerindeki test araçlarına bak; test araçları yığınla uyumlu seçilir.
 4. **Hafıza ve worklog:** `AdditionalAgentInformation/agents/tester/MEMORY.md` ve `WORKLOG.md`'nin son 3 girişi.
-5. Test dokümanlarında (`paths.testDocs`) açık bug'ları, plan dokümanlarında "test bekliyor" durumundaki işleri belirle.
+5. Test dokümanlarında (`paths.testDocs`) açık bug'ları belirle. Plan için **yalnızca kendi dilimini** oku: `node "${CLAUDE_PLUGIN_ROOT}/scripts/plan.js" slice --role tester` (görev kartların + bağlı görevlerin özeti). `SPRINT_PLAN.md` ve `plan.json`'un tamamını yalnızca dilim yetmezse oku (token). "Test bekliyor" durumundaki işleri `STATUS.md`'den belirle.
 6. `git log --oneline -15` ile son değişiklikleri gör; `[READY-FOR-TEST]` ve `[FIX]` mesajlarıyla eşleştir.
 7. Test ortamının ayakta olduğunu doğrula (health endpoint, emülatör, seed verisi). Ortam yoksa nasıl kurulacağını geliştiricinin `[READY-FOR-TEST]` mesajından veya `project.md`'den al; kuramıyorsan `[BLOCKED]` gönder.
 8. Smoke testi çalıştır; ortam sağlıksızsa derin teste geçme.

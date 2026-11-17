@@ -4,6 +4,7 @@
 
 const ROLE_TAGS = { CONTRACT: "backend", BACKEND: "backend", MOBILE: "mobile", WEB: "web", "TEST-PLAN": "tester", TEST: "tester", ARCH: "lead" };
 const ESTIMATES = ["S", "M", "L"];
+const MODEL_RE = /^(opus|sonnet|haiku|inherit|claude-[a-z0-9.-]+)$/;
 // K5: bitmeyen (sunucu/watch/etkileşimli) komutlar bitti kriteri olamaz
 const NON_TERMINATING = [
   /\bnext\s+dev\b/, /\bexpo\s+start\b/, /\bnpm\s+(run\s+)?(dev|start|serve|watch)\b/, /\b(yarn|pnpm)\s+(run\s+)?(dev|start|serve|watch)\b/,
@@ -68,6 +69,9 @@ function checkPlan(plan, config) {
       for (const c of nonTerminating(d)) E(`${id}: bitti kriterinde bitmeyen komut (K5): \`${c}\``);
     }
     if (t.estimate && !ESTIMATES.includes(t.estimate)) E(`${id}: tahmin S/M/L olmalı (${t.estimate})`);
+    // Görev başına model (token): mekanik iş küçük modele; kritik iş küçük modele verilmez
+    if (t.model !== undefined && !MODEL_RE.test(String(t.model))) E(`${id}: model opus, sonnet, haiku, inherit veya claude-… olmalı (${t.model})`);
+    if (t.critical && /haiku/.test(String(t.model || ""))) W(`${id}: kritik görev haiku'ya verilmiş; mimari/güvenlik işi küçük modele verilmez`);
     if (t.estimate === "L") W(`${id}: L tahminli görev; bölünebilir mi?`);
     for (const k of ["dependsOn", "softDependsOn"]) {
       for (const d of t[k] || []) {
@@ -124,8 +128,7 @@ const esc = (s) => String(s == null ? "" : s).replace(/\|/g, "\\|").replace(/\r?
 /** SPRINT_PLAN.md'nin üretilen bölümü (işaretler arasına yazılır). */
 function renderPlan(plan, waves = checkPlan(plan).waves) {
   const tasks = plan.tasks || [], stories = plan.stories || [], scope = plan.scope || [];
-  const opens = {};
-  for (const t of tasks) for (const d of [...(t.dependsOn || []), ...(t.softDependsOn || [])]) (opens[d] = opens[d] || []).push(t.id);
+  const opens = opensOf(tasks);
   const L = [];
   L.push(`## Ana hedef`, "", String(plan.goal || ""), "");
   L.push(`## Kapsam matrisi (ana hedef maddeleri → story → görev)`, "", "| Madde | Story | Görevler |", "|---|---|---|");
@@ -150,24 +153,63 @@ function renderPlan(plan, waves = checkPlan(plan).waves) {
     L.push(`| W${w} | ${cells.join(" | ")} |`);
   }
   L.push("", "## Görev kartları", "");
-  for (const t of tasks) {
-    const st = stories.find((s) => s.id === t.story);
-    L.push(`### [${t.tag || String(t.owner || "").toUpperCase()}] ${t.id} ${t.title}${t.critical ? " ⚠️ kritik" : ""}`, "");
-    L.push(`- Sahip: ${t.owner || "—"}`);
-    L.push(`- Story: ${t.story || "—"}${st ? " " + st.title : ""}`);
-    if (t.purpose) L.push(`- Amaç: ${t.purpose}`);
-    if (t.input) L.push(`- Girdi: ${t.input}`);
-    if (t.output) L.push(`- Çıktı: ${t.output}`);
-    L.push(`- Bekler (hard): ${(t.dependsOn || []).join(", ") || "—"}`);
-    L.push(`- Bekler (soft): ${(t.softDependsOn || []).join(", ") || "—"}`);
-    L.push(`- Açar: ${(opens[t.id] || []).join(", ") || "—"}`);
-    L.push(`- Bitti kriteri:`);
-    for (const d of t.done || []) L.push(`  - ${d}`);
-    if (t.estimate) L.push(`- Tahmin: ${t.estimate}`);
-    L.push(`- Dalga: W${waves[t.id] || t.wave || "?"}`);
-    if (t.ui) L.push(`- UI: evet`);
-    L.push("");
+  for (const t of tasks) L.push(...renderCard(t, stories, opens, waves));
+  return L.join("\n");
+}
+
+function opensOf(tasks) {
+  const opens = {};
+  for (const t of tasks) for (const d of [...(t.dependsOn || []), ...(t.softDependsOn || [])]) (opens[d] = opens[d] || []).push(t.id);
+  return opens;
+}
+
+function renderCard(t, stories, opens, waves) {
+  const L = [];
+  const st = stories.find((s) => s.id === t.story);
+  L.push(`### [${t.tag || String(t.owner || "").toUpperCase()}] ${t.id} ${t.title}${t.critical ? " ⚠️ kritik" : ""}`, "");
+  L.push(`- Sahip: ${t.owner || "—"}`);
+  L.push(`- Story: ${t.story || "—"}${st ? " " + st.title : ""}`);
+  if (t.purpose) L.push(`- Amaç: ${t.purpose}`);
+  if (t.input) L.push(`- Girdi: ${t.input}`);
+  if (t.output) L.push(`- Çıktı: ${t.output}`);
+  L.push(`- Bekler (hard): ${(t.dependsOn || []).join(", ") || "—"}`);
+  L.push(`- Bekler (soft): ${(t.softDependsOn || []).join(", ") || "—"}`);
+  L.push(`- Açar: ${(opens[t.id] || []).join(", ") || "—"}`);
+  L.push(`- Bitti kriteri:`);
+  for (const d of t.done || []) L.push(`  - ${d}`);
+  if (t.estimate) L.push(`- Tahmin: ${t.estimate}`);
+  if (t.model) L.push(`- Model: ${t.model}`);
+  L.push(`- Dalga: W${waves[t.id] || t.wave || "?"}`);
+  if (t.ui) L.push(`- UI: evet`);
+  L.push("");
+  return L;
+}
+
+/**
+ * Bir rolün plan dilimi (token): üye planın tamamı yerine bunu okur. Ana hedef, rolün görev kartları
+ * ve bu görevlerin bağlı olduğu / açtığı başka rollerin görevlerinin tek satırlık özeti.
+ */
+function slicePlan(plan, role, waves = checkPlan(plan).waves) {
+  const tasks = plan.tasks || [], stories = plan.stories || [];
+  const opens = opensOf(tasks);
+  const mine = tasks.filter((t) => t.owner === role);
+  const byId = new Map(tasks.map((t) => [t.id, t]));
+  const related = new Set();
+  for (const t of mine) {
+    for (const d of [...(t.dependsOn || []), ...(t.softDependsOn || [])]) related.add(d);
+    for (const o of opens[t.id] || []) related.add(o);
   }
+  const L = [`# Plan dilimi: ${role} (sprint ${plan.sprint != null ? plan.sprint : "?"})`, "",
+    "Üretildi: plan.js slice. Planın tamamı: SPRINT_PLAN.md (yalnızca gerekirse okuyun).", "",
+    "## Ana hedef", "", String(plan.goal || ""), ""];
+  L.push(`## Görevlerin (${mine.length})`, "");
+  if (!mine.length) L.push("Bu sprintte bu role atanmış görev yok.", "");
+  for (const t of [...mine].sort((a, b) => (waves[a.id] || 0) - (waves[b.id] || 0))) L.push(...renderCard(t, stories, opens, waves));
+  const rel = [...related].map((id) => byId.get(id)).filter((t) => t && t.owner !== role);
+  L.push("## Bağlı başka görevler", "");
+  if (!rel.length) L.push("—");
+  for (const t of rel) L.push(`- ${t.id} [${t.tag || t.owner}] ${esc(t.title)} · sahip ${t.owner} · W${waves[t.id] || t.wave || "?"}${t.output ? " · çıktı: " + esc(t.output) : ""}`);
+  L.push("");
   return L.join("\n");
 }
 
@@ -183,4 +225,4 @@ function mergeIntoMarkdown(existing, rendered, sprint) {
   return `${s.replace(/\s*$/, "")}\n\n${block}\n`;
 }
 
-module.exports = { checkPlan, renderPlan, mergeIntoMarkdown, nonTerminating, BEGIN, END };
+module.exports = { checkPlan, renderPlan, slicePlan, mergeIntoMarkdown, nonTerminating, BEGIN, END };

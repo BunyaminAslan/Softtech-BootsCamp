@@ -17,6 +17,6 @@
   "evidence": { "mode": "warn", "maxAgeHours": 24 },
   "sandbox": { "allowedDomains": [] },
   "autonomy": "checkpoint",
-  "models": { "roles": {}, "tasks": {} },
+  "models": { "roles": { "web": "sonnet", "tester": "sonnet" }, "tasks": { "DOC": "sonnet" } },
   "design": { "gate": "warn", "minScore": 8, "variants": ["mobile-light", "mobile-dark", "desktop-light", "desktop-dark"], "reviews": "Docs/Design/reviews/" }
 }

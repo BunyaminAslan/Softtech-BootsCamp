@@ -362,7 +362,7 @@ const SUMMARY = [
   [/Tests:\s+(?:(\d+) failed, )?(?:\d+ skipped, )?(?:\d+ todo, )?(\d+) passed, (\d+) total/i, (m) => ({ passed: +m[2], failed: +(m[1] || 0), total: +m[3] })], // Jest
   [/Tests\s+(?:(\d+) failed \| )?(\d+) passed(?: \| \d+ skipped)? \((\d+)\)/i, (m) => ({ passed: +m[2], failed: +(m[1] || 0), total: +m[3] })], // Vitest
   [/Failed:\s*(\d+),\s*Passed:\s*(\d+),\s*Skipped:\s*\d+,\s*Total:\s*(\d+)/i, (m) => ({ passed: +m[2], failed: +m[1], total: +m[3] })], // dotnet test
-  [/=+ (?:(\d+) failed, )?(\d+) passed/i, (m) => ({ passed: +m[2], failed: +(m[1] || 0), total: null })], // pytest
+  [/(?:=+ |^)(?:(\d+) failed, )?(\d+) passed(?:, \d+ \w+)* in [\d.]+s/im, (m) => ({ passed: +m[2], failed: +(m[1] || 0), total: null })], // pytest (-q dahil)
   [/\+(\d+)(?: ~\d+)?(?: -(\d+))?: (?:All tests passed|Some tests failed)/i, (m) => ({ passed: +m[1], failed: +(m[2] || 0), total: null })], // flutter/dart
   [/# pass (\d+)[\s\S]*?# fail (\d+)/i, (m) => ({ passed: +m[1], failed: +m[2], total: null })], // node --test (TAP)
   [/ℹ pass (\d+)[\s\S]*?ℹ fail (\d+)/i, (m) => ({ passed: +m[1], failed: +m[2], total: null })], // node --test (spec)

@@ -20,10 +20,10 @@ function project(team) {
   return dir;
 }
 
-test("varsayılanlar: checkpoint, boş model tabloları", () => {
+test("varsayılanlar: checkpoint, token tasarruflu model tabloları", () => {
   const { config } = cfgLib.loadConfig(project());
   assert.strictEqual(config.autonomy, "checkpoint");
-  assert.deepStrictEqual(config.models, { roles: {}, tasks: {} });
+  assert.deepStrictEqual(config.models, { roles: { web: "sonnet", tester: "sonnet" }, tasks: { DOC: "sonnet" } });
 });
 
 test("geçerli ayarlar yüklenir; özel rol için model verilebilir", () => {
@@ -96,4 +96,11 @@ test("usage-report: model ve rol bazında toplar, tekrar eden yanıtları bir ke
   assert.match(md, /## Model bazında/);
   assert.match(md, /\| tester \| 2 \|/);
   assert.match(run("--since", "yarın").stderr, /--since biçimi/);
+});
+
+test("models: açıkça yazılmış tablo varsayılanın yerine geçer (birleşmez)", () => {
+  const { config, error } = cfgLib.loadConfig(project({ models: { roles: {} } }));
+  assert.strictEqual(error, null);
+  assert.deepStrictEqual(config.models.roles, {}, "roles: {} → ajan dosyalarındaki modeller");
+  assert.deepStrictEqual(config.models.tasks, { DOC: "sonnet" }, "yazılmayan tablo varsayılan kalır");
 });

@@ -41,7 +41,7 @@ Uzun projede her oturum öncekinin devamıdır. İşe başlamadan, sırayla:
 2. **Proje katmanı** (`AdditionalAgentInformation/`): `project.md` (dil, yığın, komutlar, ortam), `rules.md`, `team.json`, `agents/backend/instructions.md`. Klasör yoksa işe başlama; `lead`'e `[BLOCKED]` gönder.
 3. **Yığın profili:** `team.json > roles.backend.profile` tanımlıysa profil dosyasını oku: önce `AdditionalAgentInformation/profiles/<ad>.md`, yoksa `${CLAUDE_PLUGIN_ROOT}/profiles/backend/<ad>.md`. Profil, bu dosyadaki generic kuralları yığına uyarlar; çelişirse bu dosya ve TEAM_RULES kazanır.
 4. **Hafıza ve worklog:** `AdditionalAgentInformation/agents/backend/MEMORY.md` ve `WORKLOG.md`'nin son 3 girişi: nerede kalındı, açık işler, bloklar.
-5. Plan dokümanlarını (`paths.projectDocs`: BACKLOG, SPRINT_PLAN) ve ADR klasörünü tara; sana atanmış ve "devam ediyor" durumundaki işleri belirle.
+5. Plan için **yalnızca kendi dilimini** oku: `node "${CLAUDE_PLUGIN_ROOT}/scripts/plan.js" slice --role backend` (görev kartların + bağlı görevlerin özeti). `SPRINT_PLAN.md` ve `plan.json`'un tamamını yalnızca dilim yetmezse oku (token). ADR klasörünü tara; sana atanmış ve "devam ediyor" durumundaki işleri belirle.
 6. `git status --short` ve `git log --oneline -10` ile depo durumunu gör. Başkasının (kullanıcı, mobile, web, tester) yarım değişikliklerini **bozma**.
 7. **Baseline al:** `project.md > Komutlar` içindeki backend build ve test komutlarını çalıştır (K1 kanıtıyla). Kırık test varsa önce bunu raporla; senin değişikliğinden önce kırık olanla sonra kırılanı ayırt edebilmelisin.
 8. Görev belirsizse koda dokunmadan önce soru sor (Bölüm 11).

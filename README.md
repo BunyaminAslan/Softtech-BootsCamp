@@ -24,7 +24,7 @@ Kurulum, proje bağlama ve hook/guard ayrıntıları: **[PLUGIN.md](PLUGIN.md)**
 1. [Nasıl çalışır](#1-nasıl-çalışır)
 2. [Katmanlar: framework, profil, proje](#2-katmanlar-framework-profil-proje)
 3. [Roller](#3-roller)
-4. [Bir isteğin yaşam döngüsü](#4-bir-isteğin-yaşam-döngüsü)
+4. [Bir isteğin yaşam döngüsü](#4-bir-isteğin-yaşam-döngüsü) · [Takımı izlemek](#41-takım-çalışırken-neyi-nereden-izlersiniz)
 5. [Kalite kapıları](#5-kalite-kapıları)
 6. [Commit öncesi inceleme hattı](#6-commit-öncesi-inceleme-hattı)
 7. [Repo yapısı](#7-repo-yapısı)
@@ -94,6 +94,28 @@ Kullanılmayan roller projede `team.json > roles.<rol>.enabled: false` ile kapat
 7. **Kapanış:** Kapsam matrisi doğrulanır, tester go/no-go verir, lead `[DONE]` gönderir. Commit kullanıcınındır.
 
 **Özerklik ve model:** `team.json > autonomy` lead'in ne zaman durup soracağını (`supervised`, `checkpoint`, `autonomous`), `models` teammate'lerin hangi modelle başlatılacağını belirler; sprint sonunda `scripts/usage-report.js` model ve rol bazında token kullanımını raporlar.
+
+### 4.1 Takım çalışırken neyi nereden izlersiniz
+
+Takım çalışırken ajanların mesajlarını, görevlerini ve adımlarını sohbetten, ürün reposundaki dosyalardan ve Claude Code'un yerel kayıtlarından izleyebilirsiniz. Dosyaların hiçbirini elle düzenlemeniz gerekmez; yalnızca okunur.
+
+| Ne görmek istiyorsunuz | Nerede | Not |
+|---|---|---|
+| lead'in size mesajları (`[QUESTION]`, `[PLAN-APPROVAL]`, `[STATUS]`, `[BLOCKED]`, `[DONE]`) | Ana oturum (sohbet) | Ana oturum bunları aynen iletir; "Message from @lead" satırı ayrıntıyı açar (Ctrl+O) |
+| Ajanlar arası mesajlar (`[CONTRACT]`, `[READY-FOR-TEST]`, `[BUG]` …) | Teammate görünümü: in-process modda takım üyeleri arasında geçiş; `teammateMode: tmux`'ta her üyenin kendi paneli | Kısa kopyaları lead'e de gider; özetleri `STATUS.md`'ye yansır |
+| Görevler ve durumları | Claude Code görev listesi; diskte `~/.claude/tasks/<takım-veya-oturum>/<n>.json` | Görev başlığı `[ETİKET] S<n>-<m>`; açıklamada K1 satırları ve `Kanıt: L-…` |
+| Canlı durum panosu | `Docs/Project/STATUS.md` | Görev tablosu (✅, `⚠️ Kanıtsız`, `⚠️ Tasarım`, 🔴 bloklu), "kim kimi bekliyor", bloklar, açık bug'lar, sayaçlar (`team-status` satırı) ve **"Yeniden başlatma için"** bölümü |
+| Plan, dalgalar, kim ne yapacak | `Docs/Project/SPRINT_PLAN.md` (üretilir) ve `plan.json` (kaynak) | Kapsam matrisi, bağımlılık grafiği, görev kartları. Bir rolün dilimi: `node <plugin>/scripts/plan.js slice --role web` |
+| Her ajanın adım adım ne yaptığı | `AdditionalAgentInformation/agents/<rol>/WORKLOG.md` | Her oturumun girişi: yapılanlar, kanıt, kararlar, sıradaki adım |
+| Kararlar ve gerekçeleri | `Docs/ADR/`, `Docs/Project/DECISIONS.md` | Mimari ve tasarım ADR'leri, lead'in hakemlik kararları |
+| Sözleşme ve test | `Docs/Contracts/`, `Docs/Test/` | API sözleşmesi ve sürümü; test planı, raporlar, go/no-go |
+| Tasarım incelemeleri | `Docs/Design/reviews/<görev>.md` ve `<görev>/<varyant>.png` | Puan, ADR uyumu, ekran görüntüleri (K8) |
+| Hangi komut ne sonuç verdi (kanıt) | `node <plugin>/scripts/ledger.js list [--role <rol>]` · `show <L-…>` · `verify` | Kayıt proje dışındadır; ajanlar değiştiremez |
+| Token kullanımı | `node <plugin>/scripts/usage-report.js --since 24h` | Model ve rol bazında giriş/çıkış/önbellek |
+| Sprint sonu değerlendirmesi | `Docs/Project/retros/S<n>.md` | `/agent-team:retro` ile proje dersleri ve framework önerileri |
+| Ham konuşma kayıtları | `~/.claude/projects/<proje-yolu>/<oturum>.jsonl` ve `<oturum>/subagents/` | Her araç çağrısı ve sonucu; sorun ayıklama için |
+
+Kesintiden sonra nerede kalındığını tek komutla görmek için: `node <plugin>/scripts/resume-status.js` (dosya değiştirmez).
 
 **Kesinti:** Limit dolar veya oturum kapanırsa `/agent-team:resume` plan dokümanlarından, görev listesinden, worklog'lardan, kanıt kaydından ve git durumundan bir devam özeti çıkarır; lead devam modunda yalnızca yarım kalan işin sahiplerini yeniden başlattırır (PLUGIN.md > 7.6).
 

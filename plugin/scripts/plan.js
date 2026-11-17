@@ -2,6 +2,7 @@
 // plan.js — sprint planı (Docs/Project/plan.json) için kontrol ve Markdown üretimi.
 //   node plan.js check  [--project <dizin>] [--file <plan.json>]   döngü, sahipsiz/kapalı rol, K5, kapsam matrisi
 //   node plan.js render [--project <dizin>] [--file <plan.json>]   SPRINT_PLAN.md'nin üretilen bölümünü yazar (önce check)
+//   node plan.js slice --role <rol> [--project] [--file]           rolün plan dilimi (stdout): üye planın tamamı yerine bunu okur
 // Çıkış: 0 geçti, 1 plan hatası, 2 kullanım/dosya hatası.
 "use strict";
 const fs = require("fs");
@@ -24,8 +25,8 @@ const { config } = cfgLib.loadConfig(PROJECT);
 const docs = path.join(PROJECT, config.paths.projectDocs);
 const file = path.resolve(PROJECT, opt("--file") || path.join(config.paths.projectDocs, "plan.json"));
 
-if (!["check", "render"].includes(cmd)) {
-  console.error("Kullanım: plan.js check|render [--project <dizin>] [--file <plan.json>]");
+if (!["check", "render", "slice"].includes(cmd) || (cmd === "slice" && !opt("--role"))) {
+  console.error("Kullanım: plan.js check|render|slice [--role <rol>] [--project <dizin>] [--file <plan.json>]");
   process.exit(2);
 }
 let plan;
@@ -33,6 +34,12 @@ try { plan = JSON.parse(fs.readFileSync(file, "utf8")); }
 catch (e) { console.error(`plan okunamadı (${file}): ${e.message}`); process.exit(2); }
 
 const res = planLib.checkPlan(plan, config);
+if (cmd === "slice") {
+  // Sessiz: yalnızca dilim. Plan hatalıysa dilim güvenilmez; hataları yaz ve lead'e bildirilsin.
+  if (res.errors.length) { for (const e of res.errors) console.log(`HATA  ${e}`); console.log("Plan hatalı; lead'e bildir."); process.exit(1); }
+  process.stdout.write(planLib.slicePlan(plan, opt("--role"), res.waves));
+  process.exit(0);
+}
 for (const e of res.errors) console.log(`HATA  ${e}`);
 for (const w of res.warnings) console.log(`UYARI ${w}`);
 const n = (plan.tasks || []).length;

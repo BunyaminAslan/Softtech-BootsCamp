@@ -34,9 +34,9 @@
 
 | Amaç | Komut |
 |---|---|
-| Restore | `dotnet restore` |
-| Build | `dotnet build -warnaserror` |
-| Test | `dotnet test` |
+| Restore | `dotnet restore -v q` |
+| Build | `dotnet build -warnaserror -nologo -v q` |
+| Test | `dotnet test --nologo -v q` (test özeti korunur) |
 | Format | `dotnet format --verify-no-changes` |
 | İstemci kütüphaneleri | `libman restore` (LibMan kullanılıyorsa) |
 | Güvenlik açığı taraması | `dotnet list package --vulnerable --include-transitive` |

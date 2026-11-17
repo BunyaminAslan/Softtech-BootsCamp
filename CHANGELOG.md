@@ -2,6 +2,36 @@
 
 Sürümler `plugin/.claude-plugin/plugin.json` içindeki `version` ile eşleşir. Sürüm artırılmadıkça kullanıcılar güncellemeyi almaz.
 
+## 0.12.0 — 2026-11-17
+
+Token tasarrufu. Canlı testte (24 saat, ağırlıklı) maliyetin dağılımı şöyleydi: ana oturum %29, backend %25, lead %23, web %19, tester %4,5. Türe göre: önbelleğe yazma %36, önbellekten okuma %35, çıkış %29. Hepsi birlikte tahmini tasarruf %30–40; ölçüm sonraki canlı koşuda yapılacak.
+
+### Değişiklikler
+1. **Kısa mesajlar, ucuz ana oturum** (tahmini −%15–17).
+   - Mesaj ve raporlar en fazla ~10 satırdır; ayrıntı dosyaya yazılır, mesajda yolu verilir (TEAM_RULES > İletişim, tech-lead §0).
+   - `/agent-team:team`, takım başlamadan ana oturum için Sonnet önerir ve uzun mesajı bağlama kopyalamaz.
+   - PLUGIN.md §7.5.0: token tasarrufu.
+2. **Göreve göre model** (tahmini −%9–11).
+   - Yeni projelerde `models.roles` web ve tester için `sonnet`, `models.tasks.DOC` `sonnet` olur.
+   - Yazılmış bir `models.roles` ya da `models.tasks` tablosu artık varsayılanla birleşmez, onun yerine geçer: `"roles": {}` ajan dosyalarındaki modeller demektir. Mevcut projelerin davranışı değişmez.
+   - `plan.json > tasks[].model` isteğe bağlıdır. Plan kontrolü değeri doğrular; kritik görev `haiku`'ya verilirse uyarır. Değer kartta ve dilimde görünür.
+   - lead, aynı rolün farklı modelli görevleri için `<rol>-<model>` adlı ayrı üye ister. lead Opus'ta kalır.
+3. **Daha az başlangıç okuması** (tahmini −%8–10).
+   - `plan.js slice --role <rol>`: rolün görev kartları ve bağlı görevlerin tek satırlık özeti.
+   - Üyeler planın tamamı yerine dilimi okur. MyBlog'da web için 38 bin karakter yerine 9 bin karakter.
+   - lead, planın iki biçiminden yalnızca birini okur.
+   - Ajan dosyaları ile TEAM_RULES arasında birebir tekrar ölçüldü ve bulunmadı. Anlamca tekrar eden birkaç kural ajan başına 40–60 token tutuyor; davranışı pekiştirdikleri için korundu.
+4. **Sessiz komutlar** (tahmini −%3–5).
+   - Profillerdeki build/test/kurulum komutları az çıktı veren biçimde: `dotnet … -nologo -v q`, `vitest --reporter=dot`, `jest --silent`, `npm ci --no-audit --no-fund --loglevel=error`, `gradlew -q`, `xcodebuild -quiet`, `uv sync -q`. Test özeti ve exit kodu korunur.
+   - TEAM_RULES: çıktı `| tail`/`| head` ile kesilmez (K1 exit kodunu bozar); dosyalar Read/Grep ile hedefli okunur.
+   - Düzeltme: kanıt kaydı `pytest -q` özetini (`12 passed in 0.1s`, `=` işareti yok) ayrıştıramıyordu.
+5. **`setup-project --roles`.**
+   - Yalnızca seçilen rollerin `agents/<rol>/` klasörleri kurulur; seçilmeyenler `team.json`'a `"enabled": false` yazılır.
+   - Sonradan açılan rol için kurulum yeniden çalıştırılınca eksik klasör eklenir. Kuru çalıştırma da yalnızca seçilenleri listeler.
+   - setup-project ve onboard skill'leri kullanıcının cevabını bu parametreye çevirir. Onboard'da tarama artık kurulumdan önce yapılır.
+   - Canlı testte backend ve web seçilmişken mobile klasörü de kuruluyordu.
+6. **README §4.1 "Takım çalışırken neyi nereden izlersiniz"**: mesajlar, görevler (`~/.claude/tasks/`), STATUS panosu, plan dilimi, worklog'lar, kararlar, sözleşme ve test, tasarım incelemeleri, kanıt kaydı, kullanım raporu, retro, ham kayıtlar.
+
 ## 0.11.6 — 2026-11-17
 
 ### Güvenlik düzeltmesi

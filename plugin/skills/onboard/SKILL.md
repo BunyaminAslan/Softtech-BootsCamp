@@ -10,22 +10,22 @@ disable-model-invocation: true
 Yalnızca **ana oturum** çalıştırır. Hiçbir adımda kullanıcının dosyalarının üzerine yazılmaz. Commit kullanıcınındır.
 
 1. **Hedefi doğrula:** `git rev-parse --show-toplevel`. Repo değilse dur ve kullanıcıya söyle (onboard var olan repo içindir).
-2. **Proje katmanı:** `AdditionalAgentInformation/` yoksa önce kuru, onaydan sonra gerçek kurulum yap:
-   ```sh
-   node "${CLAUDE_PLUGIN_ROOT}/scripts/setup-project.js" --dry-run [--githooks] [--no-sandbox]
-   node "${CLAUDE_PLUGIN_ROOT}/scripts/setup-project.js" [--githooks] [--no-sandbox]
-   ```
-3. **Tara** (komut çalıştırmaz, dosya yazmaz):
+2. **Tara** (komut çalıştırmaz, dosya yazmaz; proje katmanı gerekmez):
    ```sh
    node "${CLAUDE_PLUGIN_ROOT}/scripts/onboard-scan.js"
    ```
    Raporu kullanıcıya göster: tespit edilen uygulamalar ve roller, profiller, sahiplik yolları, komutlar, notlar (watch komutları, profili olmayan yığınlar, kökteki uygulama), mevcut dokümanlar. Her satırın **tespit** mi **tahmin** mi olduğunu koru.
-4. **Kullanıcıya tek mesajda sor:** Roller ve yollar doğru mu? Kapatılacak/eklenecek rol var mı? Komutlar doğru mu (özellikle tahmin olanlar)? Var olan `CLAUDE.md`/`AGENTS.md` veya doküman klasörü varsa, içindeki kuralların `rules.md`'ye taşınmasını ister mi (taşımayı kullanıcı onaylarsa sen yaparsın; özgün dosyayı silme)?
+3. **Kullanıcıya tek mesajda sor:** Roller ve yollar doğru mu? Kapatılacak/eklenecek rol var mı? Komutlar doğru mu (özellikle tahmin olanlar)? Var olan `CLAUDE.md`/`AGENTS.md` veya doküman klasörü varsa, içindeki kuralların `rules.md`'ye taşınmasını ister mi (taşımayı kullanıcı onaylarsa sen yaparsın; özgün dosyayı silme)?
+4. **Proje katmanı:** `AdditionalAgentInformation/` yoksa önce kuru, onaydan sonra gerçek kurulum yap. Roller 3. adımdaki onaylı listedir (`--roles`): yalnızca onların `agents/<rol>/` klasörleri kurulur.
+   ```sh
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/setup-project.js" --dry-run --roles <liste> [--githooks] [--no-sandbox]
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/setup-project.js" --roles <liste> [--githooks] [--no-sandbox]
+   ```
 5. **Taslakları yaz:**
    ```sh
    node "${CLAUDE_PLUGIN_ROOT}/scripts/onboard-scan.js" --write
    ```
-   `team.json` ve `project.md` şablondan hiç değiştirilmemişse doğrudan güncellenir; değiştirilmişse yanlarına `.draft` dosyası yazılır. `.draft` varsa farkı kullanıcıya göster ve onayıyla birleştir. Sonra kullanıcının 4. adımdaki düzeltmelerini `team.json`/`project.md`'ye uygula.
+   `team.json` ve `project.md` şablondan hiç değiştirilmemişse doğrudan güncellenir; değiştirilmişse yanlarına `.draft` dosyası yazılır. `.draft` varsa farkı kullanıcıya göster ve onayıyla birleştir. Sonra kullanıcının 3. adımdaki düzeltmelerini `team.json`/`project.md`'ye uygula.
    **Hazır profil yoksa taslak üret:** Bir rolün yığını için plugin'de profil yoksa (mevcut profiller: `${CLAUDE_PLUGIN_ROOT}/profiles/README.md`; tarama notunda "hazır profil yok") kullanıcıya sor: taslak profil hazırlansın mı? Evet ise:
    - `${CLAUDE_PLUGIN_ROOT}/templates/profile.md` şablonunu `AdditionalAgentInformation/profiles/<ad>.md` olarak kopyala ve doldur (plugin'e yazma). İçerik generic kalır; projeye özgü bilgi `project.md`'ye gider. Paket indeksi alan adlarını yığının resmi dokümanından al, tahmin etme.
    - Doğrula: `node "${CLAUDE_PLUGIN_ROOT}/scripts/profile-check.js" AdditionalAgentInformation/profiles/<ad>.md --role <rol>`. HATA kalmayana kadar düzelt.

@@ -267,8 +267,8 @@ Her rol, oturum başında sırayla şunları okur: `TEAM_RULES.md` (plugin), `pr
 | `evidence.mode` | Kanıt kaydı modu (Bölüm 7.5): `warn` (varsayılan), `enforce`, `strict`. Kısaltma: `"evidence": "enforce"` | Guard'ı değil TaskCompleted kapısını etkiler |
 | `sandbox.allowedDomains` | Projeye özel sandbox ağ izinleri (alan adı, `*.alan.com`, isteğe bağlı `:port`) | Guard'ı etkilemez; `setup-project` bunları `.claude/settings.json`'a ekler, ön kontrol eksikleri gösterir (Bölüm 1.1) |
 | `autonomy` | lead'in ne zaman durup soracağı: `supervised` (plan onayı + her dalga sonu + her kapsam değişikliği + kritik kararlar), `checkpoint` (varsayılan: plan onayı + kritik kararlar), `autonomous` (plan onayı + yalnızca engellendiğinde; kararlar `[STATUS]` ile raporlanır). Commit, push, deploy ve sistem kurulumu her düzeyde sizindir. | Guard'ı etkilemez; lead davranışı (tech-lead.md §0.1) |
-| `models.roles.<rol>` | Teammate'in başlatılırken kullanılacağı model: `opus`, `sonnet`, `haiku`, `inherit` veya tam model kimliği. Boşsa ajan dosyasındaki model. Model teammate'in tüm görevleri için geçerlidir. | lead `[SPAWN-REQUEST]`'e `model:` satırı yazar, ana oturum Agent aracının `model` parametresiyle başlatır |
-| `models.tasks.<ETİKET>` | Mekanik işler için model (ör. `TEST`, `DOC`). Bir dalgada o etiketli birden çok görev varsa lead bunlar için o modelle ayrı bir üye ister (ör. `tester-test`). | Aynı |
+| `models.roles.<rol>` | Teammate'in başlatılırken kullanılacağı model: `opus`, `sonnet`, `haiku`, `inherit` veya tam model kimliği. Varsayılan (yeni projeler): `web` ve `tester` `sonnet`. Tablo yazılırsa varsayılanın yerine geçer; `"roles": {}` ajan dosyalarındaki modeller demektir (önceki davranış). Model teammate'in tüm görevleri için geçerlidir. | lead `[SPAWN-REQUEST]`'e `model:` satırı yazar, ana oturum Agent aracının `model` parametresiyle başlatır |
+| `models.tasks.<ETİKET>` | Mekanik işler için model (ör. `TEST`, `DOC`). Varsayılan: `DOC` → `sonnet`. Bir dalgada o etiketli birden çok görev varsa lead bunlar için o modelle ayrı bir üye ister (ör. `tester-test`). Görev başına model: `plan.json > tasks[].model` (lead mekanik işleri `sonnet`/`haiku`'ya verir; aynı rol için birden çok görev varsa `<rol>-<model>` adlı ayrı üye). | Aynı |
 | `design.gate` | Tasarım kapısı (TEAM_RULES K8): `UI: evet` işaretli görev ekran görüntülü ve puanlı bir incelemeyle kapanır. `warn` (varsayılan: kapanır, `⚠️ Tasarım` + uyarı), `enforce` (engeller), `off` | TaskCompleted kapısı |
 | `design.minScore` / `variants` / `reviews` | Puan eşiği (1–10, varsayılan 8); zorunlu ekran görüntüsü varyantları; inceleme klasörü (şablon `_TEMPLATE.md` kurulumla gelir) | Aynı |
 | `evidence.maxAgeHours` | Kanıtın görev kapanışından en fazla kaç saat önce çalışmış olabileceği (varsayılan 24, en fazla 720) | Aynı |
@@ -408,6 +408,18 @@ Betik veri dizinini kendisi bulur (`CLAUDE_PLUGIN_DATA`, yoksa `~/.claude/plugin
 - Kayıt "komut çalıştı ve 0 ile bitti" der, "doğru komut çalıştı" demez; bunu `strict` mod daraltır.
 - Arka plan komutları kanıt üretmez (Claude Code arka plan bitişini hook'a bildirmez). Kanıt komutları ön planda, gerekirse 10 dakikalık zaman aşımıyla çalışır (TEAM_RULES K2).
 - Sandbox yoksa (native Windows) kayıt guard, Claude Code izinleri ve hash zinciriyle korunur.
+
+### 7.5.0 Token tasarrufu
+
+Ölçüm (canlı test, 24 saat, ağırlıklı): ana oturum %29, backend %25, lead %23, web %19, tester %4,5. Maliyetin %36'sı önbelleğe yazma (ajanın başlarken okuduğu dosyalar), %35'i önbellekten okuma (uzayan bağlam), %29'u çıkış token'ı. Framework bunları şöyle azaltır:
+
+- **Ana oturum Sonnet:** Takım çalışırken ana oturum yalnızca mesaj taşır; `/model sonnet` yeterlidir (plugin ana oturumun modelini değiştiremez). `claude -p` ile gözetimsiz çalıştırıyorsanız `--model sonnet`.
+- **Kısa mesajlar:** Mesaj ve raporlar en fazla ~10 satırdır; ayrıntı dosyaya yazılır (TEAM_RULES > İletişim).
+- **Göreve göre model:** `team.json > models` (Bölüm 5). Yeni projelerde web ve tester Sonnet, doküman görevleri Sonnet'tir; lead ve backend'in çekirdek işleri Opus'ta kalır. lead mekanik görevleri `plan.json > tasks[].model` ile küçük modele yönlendirir.
+- **Daha az başlangıç okuması:** Üyeler planın tamamı yerine yalnızca kendi dilimini okur (`plan.js slice --role <rol>`).
+- **Sessiz komutlar:** Profillerdeki build/test komutları az çıktı verir; dosyalar Read/Grep ile hedefli okunur.
+
+Kanıt kuralı (K1) ve tasarım kapısı (K8) maliyetin küçük bir kısmıdır; kaldırmayın.
 
 ### 7.5.1 Kullanım raporu
 

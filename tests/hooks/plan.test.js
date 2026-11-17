@@ -108,3 +108,34 @@ test("plan.js CLI: check/render çıkış kodları; şablon örneği geçerli", 
   assert.strictEqual(spawnSync(process.execPath, [SCRIPT], { encoding: "utf8" }).status, 2);
   assert.deepStrictEqual(planLib.checkPlan(JSON.parse(fs.readFileSync(TEMPLATE, "utf8")), cfg()).errors, []);
 });
+
+// 0.12.0 (token): görev başına model ve rol dilimi
+test("plan: görev modeli doğrulanır; kritik görev haiku'ya verilirse uyarır", () => {
+  const p = JSON.parse(fs.readFileSync(TEMPLATE, "utf8"));
+  p.tasks[0].model = "gpt-4";
+  assert.ok(planLib.checkPlan(p, cfg()).errors.some((e) => /S1-01: model/.test(e)));
+  p.tasks[0].model = "haiku";
+  assert.ok(planLib.checkPlan(p, cfg()).warnings.some((w) => /kritik görev haiku/.test(w)));
+  p.tasks[0].model = "sonnet";
+  const r = planLib.checkPlan(p, cfg());
+  assert.deepStrictEqual(r.errors, []);
+  assert.match(planLib.renderPlan(p, r.waves), /- Model: sonnet/);
+});
+
+test("plan slice: rolün kartları + bağlı görevlerin tek satırlık özeti; başka rolün kartı yok", () => {
+  const p = JSON.parse(fs.readFileSync(TEMPLATE, "utf8"));
+  const s = planLib.slicePlan(p, "web");
+  assert.match(s, /# Plan dilimi: web/);
+  assert.match(s, /### \[WEB\] S1-03/);
+  assert.doesNotMatch(s, /### \[BACKEND\]/, "başka rolün kartı dilimde yok");
+  assert.match(s, /- S1-01 \[CONTRACT\] .* sahip backend/, "bağımlılık özeti");
+  assert.match(s, /- S1-04 \[TEST\] .* sahip tester/, "açtığı görev özeti");
+  assert.ok(s.length < planLib.renderPlan(p).length, "dilim tam plandan kısa");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "plan-slice-"));
+  fs.mkdirSync(path.join(dir, "Docs", "Project"), { recursive: true });
+  fs.copyFileSync(TEMPLATE, path.join(dir, "Docs", "Project", "plan.json"));
+  const out = spawnSync(process.execPath, [SCRIPT, "slice", "--role", "backend", "--project", dir], { encoding: "utf8" });
+  assert.strictEqual(out.status, 0, out.stderr);
+  assert.match(out.stdout, /^# Plan dilimi: backend/);
+  assert.strictEqual(spawnSync(process.execPath, [SCRIPT, "slice", "--project", dir], { encoding: "utf8" }).status, 2, "--role zorunlu");
+});

@@ -307,7 +307,13 @@ function writeDrafts(result) {
   const tplTeam = fs.readFileSync(path.join(tplDir, "team.json"), "utf8");
   const tplProject = fs.readFileSync(path.join(tplDir, "project.md"), "utf8");
   const currentTeam = readJson(path.join(layer, "team.json"));
-  const teamUntouched = !currentTeam || JSON.stringify(currentTeam) === JSON.stringify(JSON.parse(tplTeam));
+  // setup-project --roles'un yazdığı enabled değerleri kullanıcı değişikliği sayılmaz
+  const enabledAgnostic = (t) => {
+    const c = JSON.parse(JSON.stringify(t));
+    for (const r of Object.values((c && c.roles) || {})) if (r && typeof r === "object" && "enabled" in r) r.enabled = true;
+    return JSON.stringify(c);
+  };
+  const teamUntouched = !currentTeam || enabledAgnostic(currentTeam) === enabledAgnostic(JSON.parse(tplTeam));
   const team = JSON.stringify(teamDraft(result), null, 2) + "\n";
   fs.writeFileSync(path.join(layer, teamUntouched ? "team.json" : "team.json.draft"), team);
   written.push(`${cfgLib.LAYER_DIR}/${teamUntouched ? "team.json" : "team.json.draft (mevcut dosya değiştirilmiş; taslak yanına yazıldı)"}`);

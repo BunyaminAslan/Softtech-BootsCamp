@@ -54,7 +54,7 @@ const DEFAULT_CONFIG = Object.freeze({
   autonomy: "checkpoint",
   // Teammate modeli (madde 11): roles.<rol> spawn anındaki model; tasks.<ETİKET> lead'in o işe ayrı üye açarken
   // kullanacağı model. Boşsa ajan dosyasındaki model geçerlidir. Değer: opus | sonnet | haiku | inherit | claude-…
-  models: { roles: {}, tasks: {} },
+  models: { roles: { web: "sonnet", tester: "sonnet" }, tasks: { DOC: "sonnet" } },
   // Tasarım kapısı (madde 10): "UI: evet" işaretli görev, ekran görüntülü ve puanlı bir inceleme dosyasıyla kapanır.
   // gate: off | warn (kapanır, uyarır) | enforce (engeller). variants: zorunlu ekran görüntüsü varyantları.
   design: { gate: "warn", minScore: 8, variants: ["mobile-light", "mobile-dark", "desktop-light", "desktop-dark"], reviews: "Docs/Design/reviews/" },
@@ -210,6 +210,8 @@ function loadConfig(projectDir) {
       for (const [k, keyRe, what] of [["roles", /^[a-z][a-z0-9-]*$/, "rol"], ["tasks", /^[A-Z][A-Z0-9-]*$/, "görev etiketi (BÜYÜK harf, ör. TEST)"]]) {
         if (!(k in m)) continue;
         if (typeof m[k] !== "object" || m[k] === null || Array.isArray(m[k])) { errors.push(`models.${k} bir nesne olmalı`); continue; }
+        // Açıkça yazılmış tablo varsayılanın yerine geçer (birleşmez): "roles": {} = ajan dosyalarındaki modeller
+        base.models[k] = {};
         for (const [key, val] of Object.entries(m[k])) {
           if (!keyRe.test(key)) errors.push(`models.${k}.${key}: geçersiz ${what}`);
           else if (typeof val !== "string" || !MODEL_RE.test(val)) errors.push(`models.${k}.${key}: model opus, sonnet, haiku, inherit veya claude-… olmalı`);

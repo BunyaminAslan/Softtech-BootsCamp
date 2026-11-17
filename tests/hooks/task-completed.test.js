@@ -220,3 +220,12 @@ test("STATUS: tabloda olmayan görev satır olarak eklenir", () => {
   assert.match(s, /done=1 total=4/);
   assert.strictEqual((s.match(/\[BACKEND\] S1-01/g) || []).length, 1, "mevcut satırlar çoğalmaz");
 });
+
+// 0.12.0: pytest -q özeti ("12 passed in 0.1s", = işareti yok) ve sessiz dotnet/vitest özetleri ayrıştırılır
+test("testSummary: sessiz komut özetleri (pytest -q, vitest dot, dotnet -v q)", () => {
+  assert.deepStrictEqual(ledger.testSummary("....\n12 passed in 0.11s\n"), { passed: 12, failed: 0, total: null });
+  assert.deepStrictEqual(ledger.testSummary("F..\n1 failed, 2 passed, 1 warning in 0.3s"), { passed: 2, failed: 1, total: null });
+  assert.deepStrictEqual(ledger.testSummary("=== 3 passed in 0.02s ==="), { passed: 3, failed: 0, total: null });
+  assert.deepStrictEqual(ledger.testSummary("·····\n Tests  5 passed (5)\n"), { passed: 5, failed: 0, total: 5 });
+  assert.deepStrictEqual(ledger.testSummary("Passed!  - Failed:     0, Passed:    42, Skipped:     0, Total:    42"), { passed: 42, failed: 0, total: 42 });
+});

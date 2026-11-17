@@ -35,11 +35,11 @@ Geliştirme sunucusu ve izleme modundaki test komutları kanıt değildir (K2/K5
 
 | Amaç | Komut |
 |---|---|
-| Kurulum | `npm ci` |
+| Kurulum | `npm ci --no-audit --no-fund --loglevel=error` |
 | Tip kontrolü | `npx tsc --noEmit` |
 | Lint | `npx eslint .` |
-| Test | `npx vitest run` |
-| Kapsam | `npx vitest run --coverage` |
+| Test | `npx vitest run --reporter=dot` (test özeti korunur) |
+| Kapsam | `npx vitest run --reporter=dot --coverage` |
 | Build | `npm run build` |
 | Güvenlik açığı taraması | `npm audit --audit-level=high` |
 | Migration | `npx drizzle-kit generate` · `npx drizzle-kit migrate` (yalnızca local DB) |
