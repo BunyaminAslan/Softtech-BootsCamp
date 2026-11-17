@@ -154,3 +154,24 @@ test("browser: Playwright Chromium tespiti, SessionStart uyarısı yalnızca kat
   assert.equal(buildSystemMessage(proj, ok), null);
   assert.doesNotMatch(buildContext(proj, ok), /Chromium kurulu değil/);
 });
+
+// Canlı test F9 (0.11.5): MCP'nin playwright-core'unun istediği revizyon, kurulu Chromium'dan farklı olabilir.
+test("browser: mcpChromium, MCP paketinin istediği Chromium revizyonunu bulur", () => {
+  const browser = require(path.join(PLUGIN, "hooks", "lib", "browser.js"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "mcpc-"));
+  const nm = path.join(root, "cache", "_npx", "abc123", "node_modules");
+  fs.mkdirSync(path.join(nm, "@playwright", "mcp"), { recursive: true });
+  fs.mkdirSync(path.join(nm, "playwright-core"), { recursive: true });
+  fs.writeFileSync(path.join(nm, "@playwright", "mcp", "package.json"), JSON.stringify({ version: "0.0.84" }));
+  fs.writeFileSync(path.join(nm, "playwright-core", "browsers.json"), JSON.stringify({ browsers: [{ name: "chromium", revision: "1252" }] }));
+  const env = { npm_config_cache: path.join(root, "cache"), PLAYWRIGHT_BROWSERS_PATH: path.join(root, "pw") };
+  fs.mkdirSync(path.join(root, "pw", "chromium-1255"), { recursive: true });
+  let r = browser.mcpChromium("0.0.84", env);
+  assert.equal(r.revision, "1252");
+  assert.equal(r.installed, false, "yalnızca başka revizyon kurulu");
+  assert.match(r.install, /cli\.js" install chromium/);
+  assert.equal(browser.mcpChromium("9.9.9", env), null, "başka MCP sürümü");
+  fs.mkdirSync(path.join(root, "pw", "chromium-1252"));
+  assert.equal(browser.mcpChromium("0.0.84", env).installed, true);
+  fs.rmSync(root, { recursive: true, force: true });
+});

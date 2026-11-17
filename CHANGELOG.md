@@ -2,6 +2,11 @@
 
 Sürümler `plugin/.claude-plugin/plugin.json` içindeki `version` ile eşleşir. Sürüm artırılmadıkça kullanıcılar güncellemeyi almaz.
 
+## 0.11.5 — 2026-11-17
+
+### Düzeltme
+- Ön kontrol: Playwright MCP'nin kendi `playwright-core`'unun istediği Chromium revizyonunu (npx önbelleğindeki `browsers.json`) okur ve kurulu olup olmadığına bakar. Kurulu Chromium başka revizyondaysa MCP başlıyor ama tarayıcı açılamıyordu; tasarım kapısı ve E2E sessizce çalışmıyordu. Eksikse WARN ve kurulum komutu verir (indirme kullanıcı onayıyla). `lib/browser.mcpChromium`.
+
 ## 0.11.4 — 2026-11-17
 
 ### Güvenlik düzeltmesi

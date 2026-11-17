@@ -296,6 +296,11 @@ function mcpProbe() {
   if (/"serverInfo"/.test(out)) {
     if (secs > 25) add("WARN", `Playwright MCP başladı ama ${secs} sn sürdü; Claude Code'un MCP zaman aşımı (30 sn) aşılabilir. Bir sonraki açılış önbellekten hızlıdır; sürmezse env.MCP_TIMEOUT = "60000"`);
     else add("PASS", `Playwright MCP başlıyor (${secs} sn)`);
+    // MCP'nin playwright-core'u belirli bir Chromium revizyonu ister; başkası kuruluysa tarayıcı açılmaz
+    const ver = (/@playwright\/mcp@([\w.-]+)/.exec(pkg) || [])[1];
+    const mc = browserLib.mcpChromium(ver);
+    if (mc && !mc.installed) add("WARN", `Playwright MCP'nin istediği Chromium (revizyon ${mc.revision}) kurulu değil: ${mc.dir}. MCP başlar ama tarayıcı açılamaz (tasarım kapısı K8, E2E). Kullanıcı onayıyla kurun: ${mc.install}`);
+    else if (mc) add("PASS", `Playwright MCP Chromium revizyonu ${mc.revision} kurulu`);
     return;
   }
   const broken = /ENOENT[\s\S]*?(\S*_npx[\/][0-9a-f]+)[\/]package\.json/i.exec(out);

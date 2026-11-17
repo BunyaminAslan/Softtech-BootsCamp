@@ -25,3 +25,28 @@ function playwrightChromium(env = process.env, platform = process.platform) {
 }
 
 module.exports = { browsersDir, playwrightChromium, INSTALL_CMD };
+
+// Playwright MCP'nin kendi playwright-core'unun istediği Chromium revizyonu (npx önbelleğinden).
+// Kurulu Chromium başka revizyondaysa MCP başlar ama tarayıcı açılamaz (canlı test F9, 0.11.5).
+// Dönüş: null (paket önbellekte yok) | { revision, dir, installed, install }
+function mcpChromium(mcpVersion, env = process.env, platform = process.platform) {
+  const cache = env.npm_config_cache || (platform === "win32"
+    ? path.join(env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "npm-cache")
+    : path.join(os.homedir(), ".npm"));
+  let entries = [];
+  try { entries = fs.readdirSync(path.join(cache, "_npx")); } catch (_) { return null; }
+  for (const e of entries) {
+    const nm = path.join(cache, "_npx", e, "node_modules");
+    try {
+      const v = JSON.parse(fs.readFileSync(path.join(nm, "@playwright", "mcp", "package.json"), "utf8")).version;
+      if (mcpVersion && v !== mcpVersion) continue;
+      const core = path.join(nm, "playwright-core");
+      const b = JSON.parse(fs.readFileSync(path.join(core, "browsers.json"), "utf8")).browsers.find((x) => x.name === "chromium");
+      if (!b) continue;
+      const dir = path.join(browsersDir(env, platform), "chromium-" + b.revision);
+      return { revision: b.revision, dir, installed: fs.existsSync(dir), install: `node "${path.join(core, "cli.js")}" install chromium` };
+    } catch (_) { /* bu girdi MCP değil */ }
+  }
+  return null;
+}
+module.exports.mcpChromium = mcpChromium;

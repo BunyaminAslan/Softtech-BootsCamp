@@ -1,7 +1,7 @@
 {
   "name": "agent-team",
   "displayName": "Agent Team",
-  "version": "0.11.4",
+  "version": "0.11.5",
   "description": "Generic çok-agent'lı yazılım takımı: tech-lead (mimar/organizatör), backend, mobile, web ve tester rolleri; yetki guard'ı, kanıt kuralı, görev kapanış kapısı, pre-commit inceleme hattı ve proje bazlı AdditionalAgentInformation/ katmanı.",
   "author": {
     "name": "BunyaminAslan"
